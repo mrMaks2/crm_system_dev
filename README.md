@@ -39,11 +39,3 @@
     ```bash
     docker-compose exec web python manage.py createsuperuser
     ```
-
-
-## API
-
-**Аутентификация**
-
-*   **POST /user:** Регистрация нового пользователя.
-*   **POST /refresh:** Обновление токенов.
