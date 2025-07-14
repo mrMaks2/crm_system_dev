@@ -43,5 +43,5 @@ def fetch_reviews():
                 defaults={'article_number':article_number, 'date':date, 'author':author, 'rating':rating, 'text': text}
             )
 
-    # cutoff_date = timezone.now() - datetime.timedelta(days=730)
-    # Review.objects.filter(date__lt=cutoff_date).delete()
+    cutoff_date = timezone.now() - datetime.timedelta(days=730)
+    Review.objects.filter(date__lt=cutoff_date).delete()

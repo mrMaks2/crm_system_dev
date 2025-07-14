@@ -9,8 +9,9 @@ services:
     env_file:  
     - ./reviews/.env
     depends_on:
+      - db
       - redis
-    command: python manage.py runserver
+    command: python manage.py runserver 0.0.0.0:8000
 
   worker:
     container_name: worker
