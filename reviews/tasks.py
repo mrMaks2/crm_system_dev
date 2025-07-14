@@ -13,17 +13,18 @@ def fetch_reviews():
     jwt = os.getenv('jwt')
     url = 'https://feedbacks-api.wildberries.ru/api/v1/feedbacks'
 
-    with open('prod_args.txt', 'r') as f:
-        prod_args = [ar.strip for ar in f.readlines()]
+    # with open('reviews/prod_args.txt', 'r') as f:
+    #     prod_args = [int(ar.strip()) for ar in f.readlines()]
 
-    for prod_arg in prod_args:
-        headers = {
-            'Authorization':jwt
-        }
+    prod_args = [16144451, 16144455, 16144461, 16144472, 16144482]
+    headers = {
+        'Authorization':jwt
+    }
+    for prod_arg in prod_args:   
         params = {
-            "isAnswered":True,
+            "isAnswered":'true',
             "nmId":prod_arg,
-            "take":5000,
+            "take":100,
             "skip":0
         }
         response = requests.get(url, headers=headers, params=params)
@@ -35,12 +36,12 @@ def fetch_reviews():
             author = review['userName']
             rating = review['productValuation']
             text = review['text']
-            date = datetime(review['createdDate'])
+            date = datetime.datetime.fromisoformat(review['createdDate'])
             
-            # Сохранение отзыва в базу данных, если он новый
             Review.objects.update_or_create(
                 review_id=review_id,
                 defaults={'article_number':article_number, 'date':date, 'author':author, 'rating':rating, 'text': text}
             )
-    cutoff_date = timezone.now() - datetime.timedelta(days=730)
-    Review.objects.filter(date__lt=cutoff_date).delete()
+
+    # cutoff_date = timezone.now() - datetime.timedelta(days=730)
+    # Review.objects.filter(date__lt=cutoff_date).delete()
