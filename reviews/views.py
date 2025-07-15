@@ -4,7 +4,7 @@ from .models import Review
 from .forms import ReviewForm, HomeForm
 
 def review_list(request, article_number):
-    if article_number == 0:
+    if article_number == '0':
         reviews = Review.objects.all()
         form = ReviewForm()
     else:
