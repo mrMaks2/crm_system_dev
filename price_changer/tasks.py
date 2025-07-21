@@ -18,17 +18,17 @@ headers = [
         'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
     ]
 
-proxies = {
-    'http': 'http://188.234.158.66:80',
-    'http': 'https://62.84.120.61:80',
-    'http': 'https://77.238.103.98:8080',
-    'http': 'https://80.87.192.7:3128',
-    'http': 'https://147.45.104.252:80',
-    'http': 'https://91.222.238.112:80',
-    'https': 'https://84.53.245.42:41258',
-    'http': 'https://46.47.197.210:3128',
-    'http': 'https://79.174.12.190:80',
-}
+proxies = [
+    {'http': 'http://188.234.158.66:80', 'https': 'http://188.234.158.66:80',},
+    {'http': 'https://62.84.120.61:80', 'https': 'https://62.84.120.61:80',},
+    {'http': 'https://77.238.103.98:8080', 'https': 'https://77.238.103.98:8080'},
+    {'http': 'https://80.87.192.7:3128', 'https': 'https://80.87.192.7:3128'},
+    {'http': 'https://147.45.104.252:80', 'https': 'https://147.45.104.252:80'},
+    {'http': 'https://91.222.238.112:80', 'https': 'https://91.222.238.112:80'},
+    {'http': 'https://84.53.245.42:41258', 'https': 'https://84.53.245.42:41258'},
+    {'http': 'https://46.47.197.210:3128', 'https': 'https://46.47.197.210:3128'},
+    {'http': 'https://79.174.12.190:80', 'https': 'https://79.174.12.190:80'},
+]
 
 def parse_and_save_from_wb(args):
 
