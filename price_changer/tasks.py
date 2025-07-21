@@ -20,13 +20,20 @@ headers = [
 
 proxies = {
     'http': 'http://188.234.158.66:80',
-    'https': 'https://188.234.158.66:80',
+    'http': 'https://62.84.120.61:80',
+    'http': 'https://77.238.103.98:8080',
+    'http': 'https://80.87.192.7:3128',
+    'http': 'https://147.45.104.252:80',
+    'http': 'https://91.222.238.112:80',
+    'https': 'https://84.53.245.42:41258',
+    'http': 'https://46.47.197.210:3128',
+    'http': 'https://79.174.12.190:80',
 }
 
 def parse_and_save_from_wb(args):
 
     url = f'https://www.wildberries.ru/catalog/{str(args)}/detail.aspx?targetUrl=GP'
-    resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies)
+    resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies[randint(0,8)])
     
     if resp.status_code == 200:
         soup = BeautifulSoup(resp.content, 'html.parser')
@@ -50,7 +57,7 @@ def parse_and_save_from_wb(args):
 def parse_and_save_from_ozon(args):
 
     url = f'https://www.ozon.ru/product/{str(args)}'
-    resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies)
+    resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies[randint(0,8)])
 
     if resp.status_code == 200:
         soup = BeautifulSoup(resp.content, 'html.parser')
