@@ -30,7 +30,7 @@ def parse_and_save_from_wb(args):
     
     if resp.status_code == 200:
         soup = BeautifulSoup(resp.content, 'html.parser')
-        price_with_discount_wb = Decimal(soup.find('span', attrs={'class': 'price-block__wallet-price red-price'}).text.replae('&nbsp;', '').replace('₽', ''))
+        price_with_discount_wb = Decimal(soup.find('span', attrs={'class': 'price-block__wallet-price red-price'}).text.replace('&nbsp;', '').replace('₽', ''))
 
         product, created = Product_from_wb.objects.get_or_create(
                 prod_art_from_wb=args,
@@ -54,7 +54,7 @@ def parse_and_save_from_ozon(args):
 
     if resp.status_code == 200:
         soup = BeautifulSoup(resp.content, 'html.parser')
-        price_with_discount_ozon = Decimal(soup.find('span', attrs={'class': 'z3k_27 kz2_27'}).text.replae('&thinsp;', '').replace('₽', ''))
+        price_with_discount_ozon = Decimal(soup.find('span', attrs={'class': 'z3k_27 kz2_27'}).text.replace('&thinsp;', '').replace('₽', ''))
 
         product, created = Product_from_ozon.objects.get_or_create(
                 prod_art_from_wb=args,
@@ -128,7 +128,7 @@ def change_price():
             "limit": 1 # От 1 до 1000
         }
 
-        response_from_ozon_get = requests.post(url_ozon_get, headers=headers_for_ozon, params=params_for_ozon_get)
+        response_from_ozon_get = requests.post(url_ozon_get, headers=headers_for_ozon, json=params_for_ozon_get)
         prices_data_ozon = response_from_ozon_get.json()['items'][0]['price']
         min_price = prices_data_ozon['min_price']   # Минимальная цена товара после применения всех скидок
         net_price = prices_data_ozon['net_price']   # Себестоимость товара
@@ -165,4 +165,4 @@ def change_price():
             },
         }
 
-        requests.post(url_ozon_post, headers=headers_for_ozon, params=params_for_ozon_post)       
+        requests.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post)       
