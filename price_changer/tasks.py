@@ -147,7 +147,7 @@ def change_price():
         price_without_co_invest = Decimal(prices_data_ozon['marketing_seller_price'])   # Цена без учета соинвеста
         price_with_co_invest = Decimal(prices_data_ozon['marketing_price'])   # Цена с учетом соинвеста
         discount_co_invest = round(1 - price_with_co_invest / price_without_co_invest, 2)   #Скидка соинвеста
-        discount_ozon_with_wallet = round(1 - Product_from_ozon.objects.values('price_with_discount_ozon') / price_with_co_invest, 2)  # Цена товара с учетом Ozon кошелька
+        discount_ozon_with_wallet = round(1 - price_with_discount_ozon / price_with_co_invest, 2)  # Цена товара с учетом Ozon кошелька
         price_ozon_s_be_with_wallet = Decimal(math.floor(Product_from_wb.objects.values('price_with_discount_wb') * 1.01))   # Цена на Ozon, которая должна быть с учетом скидки Ozon кошелька
         price_ozon_s_be_with_co_invest = Decimal(math.floor(price_ozon_s_be_with_wallet / (1 - discount_ozon_with_wallet)))  # Цена на Ozon, которая должна быть с учетом скидки соинвеста
 
