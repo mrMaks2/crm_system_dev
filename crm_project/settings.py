@@ -135,6 +135,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'reviews.tasks.fetch_reviews',
         'schedule': crontab(minute='*/15'),
     },
+    'price-change-every-15-minutes': {
+        'task': 'price_changer.tasks.change_price',
+        'schedule': crontab(minute='*/15'),
+    },
 }
 
 CELERY_BROKER_URL = 'redis://redis:6379/0'

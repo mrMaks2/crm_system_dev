@@ -19,22 +19,16 @@ headers = [
     ]
 
 proxies = [
-    {'http': 'http://188.234.158.66:80', 'https': 'http://188.234.158.66:80',},
-    {'http': 'https://62.84.120.61:80', 'https': 'https://62.84.120.61:80',},
-    {'http': 'https://77.238.103.98:8080', 'https': 'https://77.238.103.98:8080'},
-    {'http': 'https://80.87.192.7:3128', 'https': 'https://80.87.192.7:3128'},
-    {'http': 'https://147.45.104.252:80', 'https': 'https://147.45.104.252:80'},
-    {'http': 'https://91.222.238.112:80', 'https': 'https://91.222.238.112:80'},
-    {'http': 'https://84.53.245.42:41258', 'https': 'https://84.53.245.42:41258'},
-    {'http': 'https://46.47.197.210:3128', 'https': 'https://46.47.197.210:3128'},
-    {'http': 'https://79.174.12.190:80', 'https': 'https://79.174.12.190:80'},
+    {'http': 'http://46.47.197.210:3128', 'https': 'https://46.47.197.210:3128',},
+    {'http': 'http://79.174.12.190:80', 'https': 'https://79.174.12.190:80',},
+    {'http': 'http://62.84.120.61:80', 'https': 'https://62.84.120.61:80'},
 ]
 
 
 def parse_and_save_from_wb(args):
 
     url = f'https://www.wildberries.ru/catalog/{str(args)}/detail.aspx?targetUrl=GP'
-    resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies[randint(0,8)])
+    resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies[randint(0,2)], timeout=10)
     
     if resp.status_code == 200:
         soup = BeautifulSoup(resp.content, 'html.parser')
@@ -51,14 +45,14 @@ def parse_and_save_from_wb(args):
             print(f"Обновлен товар: {args}")
         else:
             print(f"Создан новый товар: {args}")
-            
+
     time.sleep(5)
 
 
 def parse_from_ozon(args):
 
     url = f'https://www.ozon.ru/product/{str(args)}'
-    resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies[randint(0,8)])
+    resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies[randint(0,2)], timeout=10)
 
     if resp.status_code == 200:
         soup = BeautifulSoup(resp.content, 'html.parser')
@@ -148,7 +142,9 @@ def change_price():
         price_with_co_invest = Decimal(prices_data_ozon['marketing_price'])   # Цена с учетом соинвеста
         discount_co_invest = round(1 - price_with_co_invest / price_without_co_invest, 2)   #Скидка соинвеста
         discount_ozon_with_wallet = round(1 - price_with_discount_ozon / price_with_co_invest, 2)  # Цена товара с учетом Ozon кошелька
-        price_ozon_s_be_with_wallet = Decimal(math.floor(Product_from_wb.objects.values('price_with_discount_wb') * 1.01))   # Цена на Ozon, которая должна быть с учетом скидки Ozon кошелька
+        price_wb = Product_from_wb.objects.values('price_with_discount_wb').first()
+        price_with_discount_wb = price_wb['price_with_discount_wb']
+        price_ozon_s_be_with_wallet = Decimal(math.floor(int(price_with_discount_wb) * 1.01))   # Цена на Ozon, которая должна быть с учетом скидки Ozon кошелька
         price_ozon_s_be_with_co_invest = Decimal(math.floor(price_ozon_s_be_with_wallet / (1 - discount_ozon_with_wallet)))  # Цена на Ozon, которая должна быть с учетом скидки соинвеста
 
         if price_ozon_s_be_with_co_invest > 0:
