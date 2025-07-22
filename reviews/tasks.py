@@ -10,7 +10,7 @@ import datetime
 def fetch_reviews():
 
     load_dotenv()
-    jwt = os.getenv('jwt')
+    jwt_reviews = os.getenv('jwt_reviews')
     url = 'https://feedbacks-api.wildberries.ru/api/v1/feedbacks'
 
     # with open('reviews/prod_args.txt', 'r') as f:
@@ -18,7 +18,7 @@ def fetch_reviews():
 
     prod_args = [16144451, 16144455, 16144461, 16144472, 16144482]
     headers = {
-        'Authorization':jwt
+        'Authorization':jwt_reviews
     }
     for prod_arg in prod_args:   
         params = {

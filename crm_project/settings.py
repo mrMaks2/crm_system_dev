@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'reviews',
+    'price_changer',
 ]
 
 MIDDLEWARE = [

@@ -30,6 +30,7 @@ proxies = [
     {'http': 'https://79.174.12.190:80', 'https': 'https://79.174.12.190:80'},
 ]
 
+
 def parse_and_save_from_wb(args):
 
     url = f'https://www.wildberries.ru/catalog/{str(args)}/detail.aspx?targetUrl=GP'
@@ -54,7 +55,7 @@ def parse_and_save_from_wb(args):
     time.sleep(5)
 
 
-def parse_and_save_from_ozon(args):
+def parse_from_ozon(args):
 
     url = f'https://www.ozon.ru/product/{str(args)}'
     resp = requests.get(url, headers=headers[randint(0,2)], proxies=proxies[randint(0,8)])
@@ -62,44 +63,45 @@ def parse_and_save_from_ozon(args):
     if resp.status_code == 200:
         soup = BeautifulSoup(resp.content, 'html.parser')
         price_with_discount_ozon = Decimal(soup.find('span', attrs={'class': 'z3k_27 kz2_27'}).text.replace('&thinsp;', '').replace('₽', ''))
-
-        product, created = Product_from_ozon.objects.get_or_create(
-                prod_art_from_wb=args,
-                defaults={'price_with_discount_ozon': price_with_discount_ozon}
-            )
-        
-        if not created:
-            product.price_with_discount_ozon = price_with_discount_ozon
-            product.save()
-            print(f"Обновлен товар: {args}")
+        time.sleep(5)
+        if price_with_discount_ozon:
+            return price_with_discount_ozon
         else:
-            print(f"Создан новый товар: {args}")
-
+            return -1
+    
     time.sleep(5)
+    return 0
+
 
 @shared_task
 def change_price():
 
     load_dotenv()
-    jwt = os.getenv('jwt')
+    jwt_price = os.getenv('jwt_price')
     client_id = os.getenv('client_id')
     api_key = os.getenv('api_key')
     url_wb = 'https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter'
     url_ozon_get = 'https://api-seller.ozon.ru/v5/product/info/prices'
-    url_ozon_post = 'https://api-seller.ozon.ru/v1/product/import/prices'
-
-    # with open('reviews/prod_args.txt', 'r') as f:
-    #     prod_args = [int(ar.strip()) for ar in f.readlines()]
+    # url_ozon_post = 'https://api-seller.ozon.ru/v1/product/import/prices'
 
     prod_args = {
-        16144452 : 2235224304,
-        16144457 : 509376019,
-        16144474 : 2235394210,
-        16144478 : 2235574110
+        236212732 : [1367964113, 1843974253],
+        232314554 : [1367950643, 1843974975],
+        228498596 : [1367946644, 1843959268],
+        182951045 : [1367882893, 1843913521],
+        296722841 : [1367183518, 1843409979],
+        236216608 : [1368020708, 1844020803],
+        228497127 : [1367960957, 1843971372],
+        258125953 : [1906950401, 2240902428],
+        239022653 : [1907035011, 2240964945],
+        252129611 : [1367799106, 1843861735],
+        239022843 : [1367190083, 1843417418],
+        462984176 : [2215213789, 2474079859],
+        465659390 : [2218731747, 2476912720],
     }
 
     headers_for_wb = {
-        'Authorization' : jwt
+        'Authorization' : jwt_price
     }
 
     headers_for_ozon = {
@@ -118,18 +120,17 @@ def change_price():
     for list_goods in prices_data_wb['data']['listGoods']:
 
         wb_art = list_goods['nmID']
-        # price_wb = list_goods['sizes'][0]['discountedPrice']
-        ozon_art = prod_args[int(wb_art)]
+        product_id = prod_args[int(wb_art)][0]
+        ozon_art = prod_args[int(wb_art)][1]
 
         parse_and_save_from_wb(wb_art)
-        # discount_wb = round(price_wb / Product_from_wb.objects.values('price_with_discount_wb') - 1, 2)
 
-        parse_and_save_from_ozon(ozon_art)
+        price_with_discount_ozon = parse_from_ozon(ozon_art)
 
         params_for_ozon_get = {
             "filter": {
                 "product_id": [
-                    str(ozon_art)
+                    str(product_id)
                 ]
             },
             "limit": 1 # От 1 до 1000
@@ -137,39 +138,69 @@ def change_price():
 
         response_from_ozon_get = requests.post(url_ozon_get, headers=headers_for_ozon, json=params_for_ozon_get)
         prices_data_ozon = response_from_ozon_get.json()['items'][0]['price']
-        min_price = prices_data_ozon['min_price']   # Минимальная цена товара после применения всех скидок
-        net_price = prices_data_ozon['net_price']   # Себестоимость товара
-        offer_id = response_from_ozon_get.json()['items'][0]['offer_id']   # Фильтр по параметру offer_id
-        product_id = response_from_ozon_get.json()['items'][0]['product_id']   # Фильтр по параметру product_id
-        old_price = prices_data_ozon['old_price']   # Зачеркнутая цена на карточке товара
-        price_without_co_invest = prices_data_ozon['marketing_seller_price']   # Цена без учета соинвеста
-        price_with_co_invest = prices_data_ozon['marketing_price']   # Цена с учетом соинвеста
+
+        # min_price = prices_data_ozon['min_price']   # Минимальная цена товара после применения всех скидок
+        # net_price = prices_data_ozon['net_price']   # Себестоимость товара
+        # offer_id = response_from_ozon_get.json()['items'][0]['offer_id']   # Фильтр по параметру offer_id
+        # old_price = prices_data_ozon['old_price']   # Зачеркнутая цена на карточке товара
+
+        price_without_co_invest = Decimal(prices_data_ozon['marketing_seller_price'])   # Цена без учета соинвеста
+        price_with_co_invest = Decimal(prices_data_ozon['marketing_price'])   # Цена с учетом соинвеста
         discount_co_invest = round(1 - price_with_co_invest / price_without_co_invest, 2)   #Скидка соинвеста
         discount_ozon_with_wallet = round(1 - Product_from_ozon.objects.values('price_with_discount_ozon') / price_with_co_invest, 2)  # Цена товара с учетом Ozon кошелька
-        price_ozon_s_be_with_wallet = math.floor(Product_from_wb.objects.values('price_with_discount_wb') * 1.01)   # Цена на Ozon, которая должна быть с учетом скидки Ozon кошелька
-        price_ozon_s_be_with_co_invest = math.floor(price_ozon_s_be_with_wallet / (1 - discount_ozon_with_wallet))  # Цена на Ozon, которая должна быть с учетом скидки соинвеста
+        price_ozon_s_be_with_wallet = Decimal(math.floor(Product_from_wb.objects.values('price_with_discount_wb') * 1.01))   # Цена на Ozon, которая должна быть с учетом скидки Ozon кошелька
+        price_ozon_s_be_with_co_invest = Decimal(math.floor(price_ozon_s_be_with_wallet / (1 - discount_ozon_with_wallet)))  # Цена на Ozon, которая должна быть с учетом скидки соинвеста
 
         if price_ozon_s_be_with_co_invest > 0:
             price_ozon_s_be = math.floor(price_ozon_s_be_with_co_invest / (1 - discount_co_invest))   # Цена, которая должна быть на Ozon у продавца
         else:
             price_ozon_s_be = price_without_co_invest
 
-        params_for_ozon_post = {
-            "prices": {
-                "auto_action_enabled": "DISABLED",
-                "auto_add_to_ozon_actions_list_enabled": "DISABLED",
-                "currency_code": "RUB",
-                "min_price": min_price,   # Минимальная цена товара после применения всех скидок
-                "min_price_for_auto_actions_enabled": 'true',
-                "net_price": net_price,   # Себестоимость товара
-                "offer_id": offer_id,   # Фильтр по параметру offer_id
-                "old_price": old_price, # Зачеркнутая цена на карточке товара
-                "price": price_ozon_s_be,    # Цена без учета скидки Ozon карты
-                "price_strategy_enabled": "DISABLED",
-                "product_id": product_id,  # Фильтр по параметру product_id
-                "quant_size": 1,
-                "vat": "0.05"
-            },
-        }
+        product, created = Product_from_ozon.objects.get_or_create(
+                prod_art_from_wb=product_id,
+                defaults={
+                    'price_with_discount_ozon': price_with_discount_ozon,
+                    'price_without_co_invest': price_without_co_invest,
+                    'price_with_co_invest': price_with_co_invest,
+                    'discount_co_invest': discount_co_invest,
+                    'discount_ozon_with_wallet': discount_ozon_with_wallet,
+                    'price_ozon_s_be_with_wallet': price_ozon_s_be_with_wallet,
+                    'price_ozon_s_be_with_co_invest': price_ozon_s_be_with_co_invest,
+                    'price_ozon_s_be': price_ozon_s_be
+                }
+            )
+        
+        if not created:
+            product.price_with_discount_ozon = price_with_discount_ozon
+            product.price_without_co_invest = price_without_co_invest
+            product.price_with_co_invest = price_with_co_invest
+            product.discount_co_invest = discount_co_invest
+            product.discount_ozon_with_wallet = discount_ozon_with_wallet
+            product.price_ozon_s_be_with_wallet = price_ozon_s_be_with_wallet
+            product.price_ozon_s_be_with_co_invest = price_ozon_s_be_with_co_invest
+            product.price_ozon_s_be = price_ozon_s_be
+            product.save()
+            print(f"Обновлен товар: {product_id}")
+        else:
+            print(f"Создан новый товар: {product_id}")
 
-        requests.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post)       
+
+        # params_for_ozon_post = {
+        #     "prices": {
+        #         "auto_action_enabled": "DISABLED",
+        #         "auto_add_to_ozon_actions_list_enabled": "DISABLED",
+        #         "currency_code": "RUB",
+        #         "min_price": min_price,   # Минимальная цена товара после применения всех скидок
+        #         "min_price_for_auto_actions_enabled": 'true',
+        #         "net_price": net_price,   # Себестоимость товара
+        #         "offer_id": offer_id,   # Фильтр по параметру offer_id
+        #         "old_price": old_price, # Зачеркнутая цена на карточке товара
+        #         "price": price_ozon_s_be,    # Цена без учета скидки Ozon карты
+        #         "price_strategy_enabled": "DISABLED",
+        #         "product_id": product_id,  # Фильтр по параметру product_id
+        #         "quant_size": 1,
+        #         "vat": "0.05"
+        #     },
+        # }
+
+        # requests.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post)       
