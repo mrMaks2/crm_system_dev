@@ -6,3 +6,8 @@ redis
 django-celery-beat
 psycopg2-binary
 beautifulsoup4
+lxml
+selenium
+webdriver-manager
+fake_useragent
+setuptools
