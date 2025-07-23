@@ -3,80 +3,9 @@ import requests
 import os
 from dotenv import load_dotenv
 from .models import Product_from_wb, Product_from_ozon
-from bs4 import BeautifulSoup
 from random import randint
-import time
 import math
-
-headers = [
-    {'User-Agent': 'Mozilla/5.0 (Windows NT 5.1; rv:47.0) Gecko/20100101 Firefox/47.0',
-        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'},
-    {'User-Agent': 'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.112 Safari/537.36',
-        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'},
-    {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv:53.0) Gecko/20100101 Firefox/53.0',
-        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
-    ]
-
-# proxies = [
-#     {'http': 'http://46.47.197.210:3128', 'https': 'https://46.47.197.210:3128',},
-#     {'http': 'http://79.174.12.190:80', 'https': 'https://79.174.12.190:80',},
-#     {'http': 'http://62.84.120.61:80', 'https': 'https://62.84.120.61:80'},
-# ]
-
-class SessionForParse:
-    def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update(headers[randint(0,2)])
-
-    def get(self, url, **kwargs):
-        return self.session.get(url, **kwargs)
-
-    def post(self, url, **kwargs):
-        return self.session.post(url, **kwargs)
-
-session = SessionForParse() #proxies[randint(0,2)])
-
-
-def parse_and_save_from_wb(args):
-
-    url = f'https://www.wildberries.ru/catalog/{str(args)}/detail.aspx?targetUrl=GP'
-    resp = session.get(url, timeout=10)
-    
-    if resp.status_code == 200:
-        soup = BeautifulSoup(resp.text, 'lxml')
-        price_with_discount_wb = int(soup.select_one('span.price-block__wallet-price.red-price').text.strip().replace('&nbsp;', '').replace('₽', ''))
-
-        product, created = Product_from_wb.objects.get_or_create(
-                prod_art_from_wb=args,
-                defaults={'price_with_discount_wb': price_with_discount_wb}
-            )
-        
-        if not created:
-            product.price_with_discount_wb = price_with_discount_wb
-            product.save()
-            print(f"Обновлен товар: {args}")
-        else:
-            print(f"Создан новый товар: {args}")
-
-    time.sleep(5)
-
-
-def parse_from_ozon(args):
-
-    url = f'https://www.ozon.ru/product/{str(args)}'
-    resp = session.get(url, timeout=10)
-
-    if resp.status_code == 200:
-        soup = BeautifulSoup(resp.text, 'lxml')
-        price_with_discount_ozon = int(soup.select_one('span.z3k_27.kz2_27').text.strip().replace('&thinsp;', '').replace('₽', ''))
-        time.sleep(5)
-        if price_with_discount_ozon:
-            return price_with_discount_ozon
-        else:
-            return -1
-    
-    time.sleep(5)
-    return 0
+from .parsers import parse_from_ozon, parse_and_save_from_wb
 
 
 @shared_task
@@ -119,7 +48,7 @@ def change_price():
         "limit": 1000
     }
 
-    response_from_wb = session.get(url_wb, headers=headers_for_wb, params=params_for_wb)
+    response_from_wb = requests.get(url_wb, headers=headers_for_wb, params=params_for_wb)
     prices_data_wb = response_from_wb.json()
 
 
@@ -131,7 +60,7 @@ def change_price():
 
         parse_and_save_from_wb(wb_art)
 
-        price_with_discount_ozon = parse_from_ozon(ozon_art)
+        price_with_discount_ozon = int(parse_from_ozon(ozon_art).strip().replace('&thinsp;', '').replace('₽', '').replace(' ', '').replace('&nbsp;', ''))
 
         params_for_ozon_get = {
             "filter": {
@@ -142,7 +71,7 @@ def change_price():
             "limit": 1 # От 1 до 1000
         }
 
-        response_from_ozon_get = session.post(url_ozon_get, headers=headers_for_ozon, json=params_for_ozon_get)
+        response_from_ozon_get = requests.post(url_ozon_get, headers=headers_for_ozon, json=params_for_ozon_get)
         prices_data_ozon = response_from_ozon_get.json()['items'][0]['price']
 
         # min_price = prices_data_ozon['min_price']   # Минимальная цена товара после применения всех скидок
@@ -211,4 +140,4 @@ def change_price():
         #     },
         # }
 
-        # session.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post)       
+        # requests.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post)       
