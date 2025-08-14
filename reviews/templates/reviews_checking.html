@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Страница проверки отзыва{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12 my-2">
+        <form method="get" action="">
+            {% csrf_token %}
+            <h6>Введите данные для проверки</h6>
+            <div class="form-group">
+                <input class="form-control" type="text" name="review_example" placeholder="Введите пример отзыва для проверки" required>
+            </div>
+            <div class="form-group">
+                <input class="form-control" type="text" name="article" placeholder="Введите артикул товара, с отзывами которого необходимо сравнить" required>
+            </div>
+                <button type="submit" class="btn btn-primary">Проверить</button>
+        </form>
+    </div>
+</div>
+<div class="container">
+    {% if len(similarities) == 0 %}
+        <p style="color: green;">Отзыв уникальный! Можно постить!</p>
+    {% elif similarities %}
+    <h1>Список совпадений</h1>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Идеинтичность, %</th>
+                <th>Текст отзыва</th>
+            </tr>
+        </thead>
+        <tbody>
+                {% for similarity in similarities %}
+                    <tr>
+                        <td>{{ similarity.0 }}</td>
+                        <td>{{ similarity.1 }}</td>
+                    </tr>
+                {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+            
+    {% endif %}
+</div>
+{% endblock %}

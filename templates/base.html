@@ -1,0 +1,150 @@
+{% url 'reviews:review_list' as review_list_url %}
+{% url 'reviews:check' as reviews_check_url %}
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Bootstrap pagination -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <!-- Bootstrap 4 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+
+    <!-- Font Awesome -->
+    <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+
+    <!-- Moment.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.23.0/moment.min.js" integrity="sha256-VBLiveTKyUZMEzJd6z2mhfxIqz3ZATCuVMawPZGzIfA=" crossorigin="anonymous"></script>
+
+    <!-- Tempus Dominus Bootstrap 4 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.1.2/css/tempusdominus-bootstrap-4.min.css" integrity="sha256-XPTBwC3SBoWHSmKasAk01c08M6sIA5gF5+sRxqak2Qs=" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.1.2/js/tempusdominus-bootstrap-4.min.js" integrity="sha256-z0oKYg6xiLq3yJGsp/LsY9XykbweQlHl42jHv2XTBz4=" crossorigin="anonymous"></script>
+    <title>{% block title %}Base title{% endblock %}</title>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-light container" style="background-color: #e3f2fd;">
+      <a class="navbar-brand" href="#">LeFami</a> {% comment %}{% url 'home' %}{% endcomment %}
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNavDropdown">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item {% if request.path == review_list_url %} active {% endif %}">
+            <a class="nav-link" href="{% url 'reviews:review_list' %}">Отзывы </a>
+          </li>
+          <li class="nav-item {% if request.path == reviews_check_url %} active {% endif %}">
+            <a class="nav-link" href="{% url 'reviews:check' %}">Проверка отзыва</a> {% comment %}{% endcomment %}
+          </li>
+          <li> {% comment %}class="nav-item {% if request.path == route_list %} active {% endif %}"{% endcomment %}
+            <a class="nav-link" href="#">Задача2</a> {% comment %}{% url 'list' %}{% endcomment %}
+          </li>
+          {% comment %} {% if user.is_authenticated %}
+          <li class="nav-item dropdown {% if request.path == cities_create_url or request.path == trains_create_url %} active {% endif %}">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              Добавить
+            </a>
+            <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+              <a class="dropdown-item" href="{% url 'cities:create' %}">Новый город</a>
+              <a class="dropdown-item" href="{% url 'trains:create' %}">Новый поезд</a>
+            </div>
+            {% else %}
+            <li class="nav-item">
+              <a class="nav-link disabled" href="">Добавить</a>
+            </li>
+            {% endif %}
+          </li>
+          {% if user.is_authenticated %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'accounts:logout' %}">Выйти</a>
+            </li>
+          {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'accounts:login' %}">Войти</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'accounts:register' %}">Регистрация</a>
+            </li>
+          {% endif %} {% endcomment %}
+        </ul>
+      </div>
+    </nav>
+    <div class="container">
+      <div class="row">
+        <div class="col-md-8 mx-auto my-2">
+          {% if messages %}
+            {% for message in messages %}
+              {% if message.level == DEFAULT_MESSAGE_LEVELS.ERROR %}Important:
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                  {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+              {% else %}
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                  {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+    <script>
+      $(document).ready(function() {
+        $('.js-example-basic-single').select2();
+        $('.js-example-basic-multiple').select2();
+      });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropdownItems = document.querySelectorAll('.dropdown-item');
+            const hiddenInput = document.getElementById('{{ form1.my_dropdown.id_for_label }}');
+
+            dropdownItems.forEach(function(item) {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const value = this.getAttribute('data-value');
+                    hiddenInput.value = value;
+                    // Обновить кнопку текста
+                    document.querySelector('#dropdownMenuButton').textContent = this.textContent;
+                });
+            });
+        });
+    </script>
+    <script>
+        $(function () {
+            $("#datetimepicker1").datetimepicker({
+            format: 'DD/MM/YYYY HH:mm',
+            });
+            $("#datetimepicker2").datetimepicker({
+            format: 'DD/MM/YYYY HH:mm',
+            });
+        });
+    </script>
+  </body>
+</html>

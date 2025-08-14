@@ -26,7 +26,7 @@ def main():
             EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'k2z_27') and contains(@class, 'zk0_27')]"))
         )
 
-        logger.debug(price_element.text.strip().replace('&thinsp;', '').replace('₽', '').replace(' ', '').replace('&nbsp;', ''))
+        logger.debug(price_element.text.strip().replace('&thinsp;', '').replace('₽', '').replace(' ', '').replace(' ', '').replace('&nbsp;', '').replace('\u00A0', ''))
     except:
         logger.debug("Элемент с классами 'z3k_27' и 'kz2_27' не найден")
     finally:

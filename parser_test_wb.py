@@ -19,8 +19,8 @@ def main():
         price_element = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'price-block__wallet-price') and contains(@class, 'red-price')]"))
         )
-
-        logger.debug(price_element.text.strip().replace('&nbsp;', '').replace('₽', '').replace(' ', ''))
+        driver.save_screenshot("timeout_error.png")
+        logger.debug(int(price_element.text.strip().replace('&nbsp;', '').replace('₽', '').replace(' ', '')))
     except:
         logger.debug("Элемент с классами 'price-block__wallet-price' и 'red-price' не найден")
     finally:

@@ -131,14 +131,22 @@ from celery.schedules import crontab
 # import reviews.tasks
 
 CELERY_BEAT_SCHEDULE = {
-    'fetch-reviews-every-15-minutes': {
+    'fetch-reviews-every-20-minutes': {
         'task': 'reviews.tasks.fetch_reviews',
+        'schedule': crontab(minute='*/20'),
+    },
+    'deleter-reviews-every-15-minutes': {
+        'task': 'reviews.tasks.deleter_reviews',
         'schedule': crontab(minute='*/15'),
     },
-    'price-change-every-15-minutes': {
-        'task': 'price_changer.tasks.change_price',
-        'schedule': crontab(minute='*/15'),
-    },
+    # 'response-to-reviews-every-20-minutes': {
+    #     'task': 'reviews.tasks.response_to_reviews',
+    #     'schedule': crontab(minute='*/20'),
+    # },
+    # 'price-change-every-20-minutes': {
+    #     'task': 'price_changer.tasks.change_price',
+    #     'schedule': crontab(minute='*/20'),
+    # },
 }
 
 CELERY_BROKER_URL = 'redis://redis:6379/0'

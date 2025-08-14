@@ -1,23 +1,22 @@
-from celery import shared_task
+# from celery import shared_task
 import requests
 import os
 from dotenv import load_dotenv
-from .models import Product_from_wb, Product_from_ozon
-from random import randint
 import math
-from .parsers import parse_from_ozon, parse_and_save_from_wb
+from price_changer.parsers import parse_from_ozon, parse_from_wb
+import json
 
-
-@shared_task
+# python -m price_changer.tasks запуск через главную вкладку
+# @shared_task
 def change_price():
 
     load_dotenv()
-    jwt_price = os.getenv('jwt_price')
+    # jwt_price = os.getenv('jwt_price')
     client_id = os.getenv('client_id')
     api_key = os.getenv('api_key')
-    url_wb = 'https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter'
     url_ozon_get = 'https://api-seller.ozon.ru/v5/product/info/prices'
     # url_ozon_post = 'https://api-seller.ozon.ru/v1/product/import/prices'
+    # url_wb = 'https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter'
 
     prod_args = {
         236212732 : [1367964113, 1843974253],
@@ -35,32 +34,39 @@ def change_price():
         465659390 : [2218731747, 2476912720],
     }
 
-    headers_for_wb = {
-        'Authorization' : jwt_price
-    }
+    # headers_for_wb = {
+    #     'Authorization' : jwt_price
+    # }
+
+    # params_for_wb = {
+    #     "limit": 1000
+    # }
+
+    # response_from_wb = requests.get(url_wb, headers=headers_for_wb, params=params_for_wb)
+    # prices_data_wb = response_from_wb.json()
 
     headers_for_ozon = {
         'Client-Id' : client_id,
         'Api-Key' : api_key
     } 
 
-    params_for_wb = {
-        "limit": 1000
-    }
+    prodacts = []
 
-    response_from_wb = requests.get(url_wb, headers=headers_for_wb, params=params_for_wb)
-    prices_data_wb = response_from_wb.json()
+    for wb_arts, ozon_arts in prod_args.items():
 
+        wb_art = wb_arts
+        product_id = ozon_arts[0]
+        ozon_art = ozon_arts[1]
 
-    for list_goods in prices_data_wb['data']['listGoods']:
+        price_with_discount_wb = parse_from_wb(wb_art)
 
-        wb_art = list_goods['nmID']
-        product_id = prod_args[int(wb_art)][0]
-        ozon_art = prod_args[int(wb_art)][1]
+        if not price_with_discount_wb:
+            continue
 
-        parse_and_save_from_wb(wb_art)
-
-        price_with_discount_ozon = int(parse_from_ozon(ozon_art).strip().replace('&thinsp;', '').replace('₽', '').replace(' ', '').replace('&nbsp;', ''))
+        price_with_discount_ozon = parse_from_ozon(ozon_art)
+        
+        if not price_with_discount_ozon:
+            continue
 
         params_for_ozon_get = {
             "filter": {
@@ -83,9 +89,7 @@ def change_price():
         price_with_co_invest = int(prices_data_ozon['marketing_price'])   # Цена с учетом соинвеста
         discount_co_invest = round(1 - price_with_co_invest / price_without_co_invest, 2)   #Скидка соинвеста
         discount_ozon_with_wallet = round(1 - price_with_discount_ozon / price_with_co_invest, 2)  # Цена товара с учетом Ozon кошелька
-        price_wb = Product_from_wb.objects.values('price_with_discount_wb').first()
-        price_with_discount_wb = price_wb['price_with_discount_wb']
-        price_ozon_s_be_with_wallet = int(math.floor(int(price_with_discount_wb) * 1.01))   # Цена на Ozon, которая должна быть с учетом скидки Ozon кошелька
+        price_ozon_s_be_with_wallet = int(math.floor(price_with_discount_wb * 1.01))   # Цена на Ozon, которая должна быть с учетом скидки Ozon кошелька
         price_ozon_s_be_with_co_invest = int(math.floor(price_ozon_s_be_with_wallet / (1 - discount_ozon_with_wallet)))  # Цена на Ozon, которая должна быть с учетом скидки соинвеста
 
         if price_ozon_s_be_with_co_invest > 0:
@@ -93,34 +97,26 @@ def change_price():
         else:
             price_ozon_s_be = price_without_co_invest
 
-        product, created = Product_from_ozon.objects.get_or_create(
-                prod_art_from_wb=product_id,
-                defaults={
-                    'price_with_discount_ozon': price_with_discount_ozon,
-                    'price_without_co_invest': price_without_co_invest,
-                    'price_with_co_invest': price_with_co_invest,
-                    'discount_co_invest': discount_co_invest,
-                    'discount_ozon_with_wallet': discount_ozon_with_wallet,
-                    'price_ozon_s_be_with_wallet': price_ozon_s_be_with_wallet,
-                    'price_ozon_s_be_with_co_invest': price_ozon_s_be_with_co_invest,
-                    'price_ozon_s_be': price_ozon_s_be
+        product = {
+                'Артикул товара на Ozon': product_id,
+                'Артикул товара на WB': wb_art,
+                'Цены':{
+                    'Цена на WB с кошельком': price_with_discount_wb,
+                    'Цена товара в Ozon с учетом кошелька': price_with_discount_ozon,
+                    'Цена в Ozon без соинвеста': price_without_co_invest,
+                    'Цена в Ozon с соинвестом': price_with_co_invest,
+                    'Скидка соинвеста': discount_co_invest,
+                    'Скидка Ozon кошелька': discount_ozon_with_wallet,
+                    'Цена на Ozon с кошельком, которая должна быть': price_ozon_s_be_with_wallet,
+                    'Цена на Ozon с соинвестом, которая должна быть': price_ozon_s_be_with_co_invest,
+                    'Цена, которая должна быть на Ozon': price_ozon_s_be
                 }
-            )
-        
-        if not created:
-            product.price_with_discount_ozon = price_with_discount_ozon
-            product.price_without_co_invest = price_without_co_invest
-            product.price_with_co_invest = price_with_co_invest
-            product.discount_co_invest = discount_co_invest
-            product.discount_ozon_with_wallet = discount_ozon_with_wallet
-            product.price_ozon_s_be_with_wallet = price_ozon_s_be_with_wallet
-            product.price_ozon_s_be_with_co_invest = price_ozon_s_be_with_co_invest
-            product.price_ozon_s_be = price_ozon_s_be
-            product.save()
-            print(f"Обновлен товар: {product_id}")
-        else:
-            print(f"Создан новый товар: {product_id}")
+        }
 
+        prodacts.append(product)
+
+    with open('products.json', 'w', encoding='utf-8') as f:
+        json.dump(prodacts, f, ensure_ascii=False, indent=4)
 
         # params_for_ozon_post = {
         #     "prices": {
@@ -141,3 +137,6 @@ def change_price():
         # }
 
         # requests.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post)       
+
+if __name__ == "__main__":
+    change_price()
