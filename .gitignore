@@ -383,3 +383,4 @@ pyrightconfig.json
 reviews\.env
 venv
 product.json
+dump.sql

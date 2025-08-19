@@ -5,8 +5,22 @@ python-dotenv
 redis
 django-celery-beat
 psycopg2-binary
-beautifulsoup4
-lxml
-selenium
-webdriver_manager
-openai
+# sentence-transformers
+DrissionPage
+# websocket-client
+# attrs
+# certifi
+# h11
+# idna
+# outcome
+# PySocks
+# selenium
+# sniffio
+# sortedcontainers
+# trio
+# trio-websocket
+# typing_extensions
+# urllib3
+# websocket-client
+# wsproto
+# selenium_stealth

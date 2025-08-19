@@ -1,13 +1,18 @@
-# from celery import shared_task
+from celery import shared_task
 import requests
 import os
 from dotenv import load_dotenv
 import math
-from price_changer.parsers import parse_from_ozon, parse_from_wb
-import json
+from .parsers import parse_from_ozon, parse_from_wb
+import logging
+# import json
+from .models import Product_from_ozon, Product_from_wb
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('price_changer.tasks')
 
 # python -m price_changer.tasks запуск через главную вкладку
-# @shared_task
+@shared_task
 def change_price():
 
     load_dotenv()
@@ -50,7 +55,7 @@ def change_price():
         'Api-Key' : api_key
     } 
 
-    prodacts = []
+    # prodacts = []
 
     for wb_arts, ozon_arts in prod_args.items():
 
@@ -97,26 +102,47 @@ def change_price():
         else:
             price_ozon_s_be = price_without_co_invest
 
-        product = {
-                'Артикул товара на Ozon': product_id,
-                'Артикул товара на WB': wb_art,
-                'Цены':{
-                    'Цена на WB с кошельком': price_with_discount_wb,
-                    'Цена товара в Ozon с учетом кошелька': price_with_discount_ozon,
-                    'Цена в Ozon без соинвеста': price_without_co_invest,
-                    'Цена в Ozon с соинвестом': price_with_co_invest,
-                    'Скидка соинвеста': discount_co_invest,
-                    'Скидка Ozon кошелька': discount_ozon_with_wallet,
-                    'Цена на Ozon с кошельком, которая должна быть': price_ozon_s_be_with_wallet,
-                    'Цена на Ozon с соинвестом, которая должна быть': price_ozon_s_be_with_co_invest,
-                    'Цена, которая должна быть на Ozon': price_ozon_s_be
-                }
-        }
+        product_from_ozon = Product_from_ozon(
+            prod_art_from_ozon=ozon_art,
+            price_with_discount_ozon=price_with_discount_ozon,
+            price_without_co_invest=price_without_co_invest,
+            price_with_co_invest=price_with_co_invest,
+            discount_co_invest=discount_co_invest,
+            discount_ozon_with_wallet=discount_ozon_with_wallet,
+            price_ozon_s_be_with_wallet=price_ozon_s_be_with_wallet,
+            price_ozon_s_be_with_co_invest=price_ozon_s_be_with_co_invest,
+            price_ozon_s_be=price_ozon_s_be
+            )
+        logger.info(product_from_ozon)
+        product_from_ozon.save()
 
-        prodacts.append(product)
+        product_from_wb = Product_from_wb(
+            prod_art_from_wb=wb_art,
+            price_with_discount_wb=price_with_discount_wb
+        )
+        logger.info(product_from_wb)
+        product_from_wb.save()
 
-    with open('products.json', 'w', encoding='utf-8') as f:
-        json.dump(prodacts, f, ensure_ascii=False, indent=4)
+    #     product = {
+    #             'Артикул товара на Ozon': product_id,
+    #             'Артикул товара на WB': wb_art,
+    #             'Цены':{
+    #                 'Цена на WB с кошельком': price_with_discount_wb,
+    #                 'Цена товара в Ozon с учетом кошелька': price_with_discount_ozon,
+    #                 'Цена в Ozon без соинвеста': price_without_co_invest,
+    #                 'Цена в Ozon с соинвестом': price_with_co_invest,
+    #                 'Скидка соинвеста': discount_co_invest,
+    #                 'Скидка Ozon кошелька': discount_ozon_with_wallet,
+    #                 'Цена на Ozon с кошельком, которая должна быть': price_ozon_s_be_with_wallet,
+    #                 'Цена на Ozon с соинвестом, которая должна быть': price_ozon_s_be_with_co_invest,
+    #                 'Цена, которая должна быть на Ozon': price_ozon_s_be
+    #             }
+    #     }
+
+    #     prodacts.append(product)
+
+    # with open('products.json', 'w', encoding='utf-8') as f:
+    #     json.dump(prodacts, f, ensure_ascii=False, indent=4)
 
         # params_for_ozon_post = {
         #     "prices": {
@@ -138,5 +164,5 @@ def change_price():
 
         # requests.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post)       
 
-if __name__ == "__main__":
-    change_price()
+# if __name__ == "__main__":
+#     change_price()

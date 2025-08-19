@@ -3,6 +3,7 @@ from django.db import models
 class Product_from_wb(models.Model):
     prod_art_from_wb = models.CharField(max_length=255, unique=True, verbose_name='Артикул товара с WB')
     price_with_discount_wb = models.IntegerField(null=True, blank=True, verbose_name='Цена с учетом скидки от кошелька')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Товар с ВБ"
@@ -21,6 +22,7 @@ class Product_from_ozon(models.Model):
     discount_ozon_with_wallet = models.FloatField(null=True, blank=True, verbose_name='Скидка кошелька Ozon')
     price_ozon_s_be_with_wallet = models.IntegerField(null=True, blank=True, verbose_name='Цена, которая должна быть с учетом скидки кошелька Ozon')
     price_ozon_s_be_with_co_invest = models.IntegerField(null=True, blank=True, verbose_name='Цена, которая должна быть с учетом соинвеста')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Товар с Озона"

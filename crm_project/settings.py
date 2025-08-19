@@ -139,14 +139,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'reviews.tasks.deleter_reviews',
         'schedule': crontab(minute='*/15'),
     },
-    # 'response-to-reviews-every-20-minutes': {
+    # 'response-to-reviews-every-720-minutes': {
     #     'task': 'reviews.tasks.response_to_reviews',
-    #     'schedule': crontab(minute='*/20'),
+    #     'schedule': crontab(minute='*/720'),
     # },
-    # 'price-change-every-20-minutes': {
-    #     'task': 'price_changer.tasks.change_price',
-    #     'schedule': crontab(minute='*/20'),
-    # },
+    'price-change-every-15-minutes': {
+        'task': 'price_changer.tasks.change_price',
+        'schedule': crontab(minute='*/15'),
+    },
 }
 
 CELERY_BROKER_URL = 'redis://redis:6379/0'
