@@ -4,9 +4,16 @@ from random import randint
 import re
 import time
 import tempfile
+import sys
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('ozon')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger('price_changer.tasks')
 
 headers = [
     {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
