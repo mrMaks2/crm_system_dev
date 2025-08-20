@@ -1,186 +1,189 @@
-# import logging
-# from DrissionPage import ChromiumPage, ChromiumOptions
-# from time import sleep
-# from dotenv import load_dotenv
-# import os
-# from random import randint
-
-# load_dotenv()
-# PROXY_USER = os.getenv('PROXY_USER')
-# PROXY_PASS = os.getenv('PROXY_PASS')
-
-# headers = [
-#     {'User-Agent': 'Mozilla/5.0 (Windows NT 5.1; rv:47.0) Gecko/20100101 Firefox/47.0',
-#         'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'},
-#     {'User-Agent': 'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.112 Safari/537.36',
-#         'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'},
-#     {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv:53.0) Gecko/20100101 Firefox/53.0',
-#         'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
-#     ]
-
-# logging.basicConfig(level=logging.DEBUG)
-# logger = logging.getLogger('ozon')
-
-
-# def main():
-#     try:
-#         co = ChromiumOptions().auto_port()
-#         co.incognito()
-#         # co.set_argument('--disable-web-security')
-#         # co.set_argument('--headless=new')
-#         co.no_imgs()
-#         # co.set_argument('--disable-blink-features=AutomationControlled')
-#         # co.set_argument('--disable-dev-shm-usage')
-#         # co.set_argument('--remote-debugging-port=0')
-
-#         proxy_url = f"http://n61Jcu:P4rhyT@195.19.200.130:8000"
-#         co.set_proxy(proxy_url)
-        
-#         page = ChromiumPage(addr_or_opts=co)
-#         user_agent = headers[randint(0, 2)]['User-Agent']
-#         page.set.user_agent(user_agent)
-        
-#         page.get('https://www.ozon.ru/product/1843974253', timeout=30)
-#         sleep(2)
-        
-#         price_element = page.ele('@class=k3z_27 zk2_27', timeout=15)
-        
-#         if price_element:
-#             price_text = price_element.text.strip()
-#             cleaned_price = ''.join(c for c in price_text if c.isdigit())
-#             logger.debug(f"Успешно! Цена: {cleaned_price} руб.")
-#             page.get_screenshot('ozon_price.png')
-#         else:
-#             logger.debug("Цена не найдена")
-#             page.get_screenshot('ozon_no_price.png')
-            
-#     except Exception as e:
-#         logger.error(f"Критическая ошибка: {str(e)}")
-#         if 'page' in locals():
-#             page.get_screenshot('ozon_error.png')
-#     finally:
-#         if 'page' in locals():
-#             page.quit()
-
-# if __name__ == "__main__":
-#     main()
-
-
-
-
-
 import logging
 from DrissionPage import ChromiumPage, ChromiumOptions
-from DrissionPage.common import By
+from random import randint
+import re
+import time
+import tempfile
+import sys
+import json
+from fake_useragent import UserAgent
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('price_changer.tasks')
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('ozon')
+ua = UserAgent(browsers='chrome', os='windows', platforms='pc')
 
-def main():
+def get_chromium_options():
 
     co = ChromiumOptions()
+
+    co.set_argument('--no-sandbox')
+    co.set_argument('--disable-dev-shm-usage')
+    co.set_argument('--disable-gpu')
+    co.set_argument('--disable-web-security')
+    co.set_argument('--disable-blink-features=AutomationControlled')
+    # co.set_argument('--headless=new')
+    co.set_argument('--disable-extensions')
+    co.set_argument('--disable-software-rasterizer')
+    co.set_argument('--disable-setuid-sandbox')
+    co.set_argument('--window-size=1920,1080')
+    co.set_argument('--disable-features=VizDisplayCompositor')
+    co.set_argument('--disable-background-timer-throttling')
+    co.set_argument('--disable-backgrounding-occluded-windows')
+    co.set_argument('--disable-renderer-backgrounding')
+    co.set_argument('--disable-back-forward-cache')
+    co.set_argument('--disable-ipc-flooding-protection')
+    co.set_argument('--disable-hang-monitor')
+    co.set_argument('--disable-client-side-phishing-detection')
+    co.set_argument('--disable-sync')
+    co.set_argument('--metrics-recording-only')
+    co.set_argument('--no-first-run')
+    co.set_argument('--safebrowsing-disable-auto-update')
+    co.set_argument('--disable-default-apps')
+    co.set_argument('--disable-prompt-on-repost')
+    co.set_argument('--disable-domain-reliability')
+    co.set_argument('--password-store=basic')
+    co.set_argument('--use-mock-keychain')
+    co.set_argument('--disable-component-update')
+    co.set_argument('--disable-blink-features=AutomationControlled')
+    co.set_argument('--exclude-switches=enable-automation')
+    co.set_argument('--disable-features=UserAgentClientHint')
+    co.set_argument('--remote-debugging-port=0')
+    co.set_argument('--disable-default-apps')
+    temp_dir = tempfile.mkdtemp(prefix='drissionpage_')
+    co.set_argument(f'--user-data-dir={temp_dir}')
     co.no_imgs()
     co.incognito()
-    # co.set_argument("--disable-blink-features=AutomationControlled")
-    # co.set_argument("--disable-infobars")
-    # co.set_argument("--no-first-run")
-    # co.set_argument("--headless=new")
-    # co.set_argument("--disable-extensions")
-    # co.set_argument("--disable-gpu")
-    co.set_argument('--disable-web-security')
-    # co.set_argument('--proxy-server=http://n61Jcu:P4rhyT@195.19.200.130:8000')
-    # co.set_argument('--ignore-certificate-errors')
-    # co.set_argument('--disable-redirect-handling')
-    # co.set_argument("--disable-save-password-bubble")
-    # co.set_argument("--disable-autofill")
-    # co.set_argument('--no-sandbox')
-
-    page = ChromiumPage(addr_or_opts=co)
     
-    page.set.user_agent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36')
+    return co, temp_dir
 
-    page.run_js('''
-        Object.defineProperty(navigator, 'webdriver', {
-            get: () => undefined,
-            configurable: true
-        });
-        window.navigator.chrome = { runtime: {} };
-        Object.defineProperty(navigator, 'plugins', {
-            get: () => [1, 2, 3],
-        });
-    ''')
+def gradual_scroll(page, scroll_pixels=1000, pause=1, max_scrolls=10):
+    current_height = page.run_js('return document.documentElement.scrollHeight')
+    
+    for _ in range(max_scrolls):
 
-    page.get("https://bot.sannysoft.com")  # Сервис для проверки автоматизации
-    page.get_screenshot("stealth_test.png")
+        page.scroll.down(scroll_pixels)
+        time.sleep(pause)
+
+        new_height = page.run_js('return document.documentElement.scrollHeight')
+        if new_height == current_height:
+            break
+        current_height = new_height
+
+def parse_from_ozon(art):
+    co, temp_dir = get_chromium_options()
+    page = None
     
     try:
-        page.get('https://www.ozon.ru/product/1843974253')
 
-        page.wait.load_start()
-        price_element = page.ele('@class=k3z_27 zk2_27', timeout=20)
+        user_agent = ua.random
+        logger.info(user_agent)
+        co.set_argument(f'--user-agent={user_agent}')
         
-        if price_element:
-            price_text = price_element.text.strip()
-            cleaned_price = (price_text
-                           .replace('&thinsp;', '')
-                           .replace('₽', '')
-                           .replace(' ', '')
-                           .replace(' ', '')
-                           .replace('&nbsp;', '')
-                           .replace('\u00A0', ''))
-            logger.debug(f"Цена товара: {cleaned_price}")
-        else:
-            logger.debug("Элемент с ценой не найден")
+        page = ChromiumPage(addr_or_opts=co)
+        page.set.user_agent(user_agent)
+        
+        logger.info(f"Переходим на страницу продавца Ozon {art}")
+        page.get(f'https://www.ozon.ru/seller/{str(art)}')
+        page.wait.load_start()
+        page.wait.doc_loaded(timeout=60)
+        time.sleep(5)
+        gradual_scroll(page, max_scrolls=15)
+        logger.info("Прокрутка страницы завершена")
+
+        with open('debug_page.html', 'w', encoding='utf-8') as f:
+            f.write(page.html)
+
+        block_selectors = [
+            "xpath://div[contains(@class, 'tile-root')]",
+            ".qi1_24.tile-root.wi5_24.wi6_24",
+            'xpath://div[contains(@class, "qi1_24") and contains(@class, "tile-root") and contains(@class, "wi5_24") and contains(@class, "wi6_24"]',
+        ]
+
+        price_selectors = [
+            "xpath://span[contains(@class, 'tsHeadline500Medium')]",
+            ".c35_3_3-a1.tsHeadline500Medium.c35_3_3-b1.c35_3_3-a6",
+            'xpath://span[contains(@class, "tsHeadline500Medium") and contains(@class, "c35_3_3-a1") and contains(@class, "c35_3_3-b1") and contains(@class, "c35_3_3-a6"]', 
+        ]
+
+        article_selectors = [
+            "xpath://a[contains(@class, 'tile-clickable-element')]",
+            ".q4b1_3_0-a.tile-clickable-element.iq7_24.qi7_24",
+            'xpath://a[contains(@class, "tile-clickable-element") and contains(@class, "q4b1_3_0-a") and contains(@class, "iq7_24") and contains(@class, "qi7_24"]',
+        ]
+        
+        result = {}
+        block_elements = []
+
+        for block_selector in block_selectors:
+            try:
+                page.wait.ele_displayed(block_selector, timeout=10)
+                logger.info(f"Применен селктор {block_selector}")
+                block_elements = page.eles(block_selector, timeout=10)
+                if block_elements:
+                    logger.info(f"Найдено {len(block_elements)} блоков товаров")
+                    break
+            except:
+                logger.info(f"Селектор {block_selector} не сработал: {e}")
+                continue
+
+        if not block_elements:
+            logger.error("Не найдено ни одного блока товаров")
+            return None
+        
+        for block_element in block_elements:
+            price_element = None
+
+            for price_selector in price_selectors:
+                try:
+                    price_element = block_element.ele(price_selector)
+                    if price_element and price_element.text.strip():
+                        break
+                except:
+                    continue
             
+            if price_element:
+                price_text = price_element.text.strip()
+                price_with_discount_ozon = int(re.sub(r'\D', '', price_text))
+                logger.info(f"Цена товара: {price_with_discount_ozon}")
+            else:
+                logger.info("Элемент с ценой в Ozon не найден")
+
+            article_element = None
+            for article_selector in article_selectors:
+                try:
+                    article_element = block_element.ele(article_selector).attr('href')
+                    if article_element:
+                        break
+                except:
+                    continue
+            
+            if article_element:
+                article_match = re.search(r'(\d{9})', article_element)
+                article_number = int(article_match.group(1))
+                logger.info(f"Артикл товара: {article_number}")
+            else:
+                logger.info("Элемент с артиклом в Ozon не найден")
+
+            result[article_number] = price_with_discount_ozon
+            
+        return result
+
     except Exception as e:
-        page.get_screenshot('ozon_page.png')
-        logger.error(f"Произошла ошибка: {str(e)}")
+        logger.error(f"Произошла ошибка при парсинге Ozon: {str(e)}")
+        return None
     finally:
-        page.quit()
+        if page:
+            try:
+                page.quit()
+            except:
+                pass
+        try:
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        except:
+            pass
 
 if __name__ == "__main__":
-    main()
-
-
-
-
-
-
-
-# import logging
-# from selenium import webdriver
-# from selenium.webdriver.chrome.service import Service
-# from selenium.webdriver.common.by import By
-# from webdriver_manager.chrome import ChromeDriverManager
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
-# from selenium.webdriver.chrome.options import Options
-
-# logging.basicConfig(level=logging.DEBUG)
-# logger = logging.getLogger('ozon')
-
-# def main():
-#     options = Options()
-#     # options.add_argument("--headless=new")
-#     options.add_argument("--disable-blink-features=AutomationControlled")
-#     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.5735.199 Safari/537.36")
-#     options.add_experimental_option("excludeSwitches", ["enable-automation"])
-#     options.add_experimental_option('useAutomationExtension', False)
-#     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-#     driver.get('https://www.ozon.ru/product/1843974253')
-#     driver.implicitly_wait(20)
-    
-#     try:
-#         price_element = WebDriverWait(driver, 20).until(
-#             EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'k3z_27') and contains(@class, 'zk2_27')]")) 
-#         )
-
-#         logger.debug(price_element.text.strip().replace('&thinsp;', '').replace('₽', '').replace(' ', '').replace(' ', '').replace('&nbsp;', '').replace('\u00A0', ''))
-#     except:
-#         logger.debug("Элемент с классами 'z3k_27' и 'kz2_27' не найден")
-#     finally:
-#         driver.quit()
-
-# if __name__ == "__main__":
-#     main()
+    result = parse_from_ozon(89293)
+    print(f"Результат: {result}")
