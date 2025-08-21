@@ -1,25 +1,38 @@
 # from celery import shared_task
+import time
 import requests
 import os
 from dotenv import load_dotenv
 import math
 from .parsers import parse_from_ozon, parse_from_wb
 import logging
-import json
+import sys
 # from .models import Product_from_ozon, Product_from_wb
 
 # python -m price_changer.tasks запуск через главную вкладку
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 logger = logging.getLogger('price_changer.tasks')
 
 load_dotenv()
+span = int(os.getenv('span'))
+distinction = int(os.getenv('distinction'))
+jwt_price_cab1 = os.getenv('jwt_price_cab1')
+jwt_price_cab2 = os.getenv('jwt_price_cab2')
 client_id_cab1 = os.getenv('client_id_cab1')
 api_key_cab1 = os.getenv('api_key_cab1')
 client_id_cab2 = os.getenv('client_id_cab2')
 api_key_cab2 = os.getenv('api_key_cab2')
 url_ozon_get = 'https://api-seller.ozon.ru/v5/product/info/prices'
-# url_ozon_post = 'https://api-seller.ozon.ru/v1/product/import/prices'
+url_ozon_post = 'https://api-seller.ozon.ru/v1/product/import/prices'
+url_wb_get = 'https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter'
+url_wb_post = 'https://discounts-prices-api.wildberries.ru/api/v2/upload/task'
 
 def load_dict_from_file(filename):
     """Загружает словарь из текстового файла"""
@@ -33,14 +46,16 @@ def load_dict_from_file(filename):
     except (FileNotFoundError, SyntaxError) as e:
         logger.error(f"Ошибка загрузки файла {filename}: {e}")
         return {}
-
+    
 # Загрузка данных из файлов
 seller_arts = load_dict_from_file('price_changer/seller_arts.txt')
 prod_arts_cab1 = load_dict_from_file('price_changer/prod_arts_cab1.txt')
 prod_arts_cab2 = load_dict_from_file('price_changer/prod_arts_cab2.txt')
+prices_dict_cab1 = load_dict_from_file('price_changer/prices_dict_cab1.txt')
+prices_dict_cab2 = load_dict_from_file('price_changer/prices_dict_cab2.txt')
 
 def get_headers_for_ozon(ozon_art):
-    """Получает заголовки для Ozon API в зависимости от артикула"""
+    """Получает заголовки для Ozon API в зависимости от артикула продавца"""
     if ozon_art == 89293:
         return {
             'Client-Id': client_id_cab1,
@@ -52,21 +67,40 @@ def get_headers_for_ozon(ozon_art):
             'Api-Key': api_key_cab2
         }
 
+def get_headers_for_wb(wb_art):
+    """Получает заголовки для WB API в зависимости от артикула продавца"""
+    if wb_art == 92041:
+        return {
+            'Authorization': jwt_price_cab1,
+        }
+    else:
+        return {
+            'Authorization': jwt_price_cab2,
+        }
+
 def get_product_arts(ozon_art):
-    """Возвращает соответствующий словарь артикулов продуктов"""
+    """Возвращает соответствующий словарь артикулов товаров"""
     if ozon_art == 89293:
         return prod_arts_cab1
     elif ozon_art == 2558268:
         return prod_arts_cab2
     return {}
 
+def get_prices_dict(wb_art):
+    """Возвращает соответствующий словарь цен товаров WB"""
+    if wb_art == 92041:
+        return prices_dict_cab1
+    elif wb_art == 1391979:
+        return prices_dict_cab2
+    return {}
+
 def process_product(wb_arts, ozon_arts, prices_with_discount_wb, prices_with_discount_ozon, headers_for_ozon):
-    """Обрабатывает один продукт и возвращает данные о ценах"""
-    product_id = ozon_arts[0]
+    """Обрабатывает один продукт и возвращает данные о ценах для Ozon"""
+    offer_id = ozon_arts[0]
 
     params_for_ozon_get = {
         "filter": {
-            "offer_id": [str(product_id)]
+            "offer_id": [str(offer_id)]
         },
         "limit": 1
     }
@@ -78,56 +112,61 @@ def process_product(wb_arts, ozon_arts, prices_with_discount_wb, prices_with_dis
         # Проверяем, что есть данные в ответе
         response_data = response_from_ozon_get.json()
         if not response_data.get('items') or len(response_data['items']) == 0:
-            logger.warning(f"Продукт {product_id} не найден в ответе API Ozon")
+            logger.warning(f"Продукт {offer_id} не найден в ответе API Ozon")
             return None
             
         prices_data_ozon = response_data['items'][0]['price']
         
         # Проверяем наличие необходимых полей
         if 'marketing_seller_price' not in prices_data_ozon or 'marketing_price' not in prices_data_ozon:
-            logger.warning(f"Отсутствуют необходимые поля цены для продукта {product_id}")
+            logger.warning(f"Отсутствуют необходимые поля цены для продукта {offer_id}")
             return None
 
     except (requests.RequestException, KeyError, IndexError) as e:
-        logger.error(f"Ошибка получения данных для продукта {product_id}: {e}")
+        logger.error(f"Ошибка получения данных для продукта {offer_id}: {e}")
         return None
 
     # Проверяем, что артикулы есть в словарях цен
     if ozon_arts[1] not in prices_with_discount_ozon:
-        logger.warning(f"Артикул {ozon_arts[1]} не найден в распарсенных ценах Ozon")
+        logger.info(f"Артикул {ozon_arts[1]} не найден в распарсенных ценах Ozon")
         return None
         
     if wb_arts not in prices_with_discount_wb:
-        logger.warning(f"Артикул {wb_arts} не найден в распарсенных ценах WB")
+        logger.info(f"Артикул {wb_arts} не найден в распарсенных ценах WB")
         return None
+
+    min_price = prices_data_ozon['min_price']   # Минимальная цена товара после применения всех скидок
+    net_price = prices_data_ozon['net_price']   # Себестоимость товара
+    old_price = prices_data_ozon['old_price']   # Зачеркнутая цена на карточке товара
+    product_id = response_from_ozon_get.json()['items'][0]['product_id']   # Фильтр по параметру product_id
+    vat = prices_data_ozon['vat']
 
     price_with_discount_ozon = prices_with_discount_ozon[ozon_arts[1]]
     price_with_discount_wb = prices_with_discount_wb[wb_arts]
     price_without_co_invest = int(prices_data_ozon['marketing_seller_price'])
     price_with_co_invest = int(prices_data_ozon['marketing_price'])
     
-    # Проверяем деление на ноль
     if price_without_co_invest == 0:
-        logger.warning(f"Цена без соинвеста равна 0 для продукта {product_id}")
+        logger.warning(f"Цена без соинвеста равна 0 для продукта {offer_id}")
         return None
         
     discount_co_invest = round(1 - price_with_co_invest / price_without_co_invest, 2)
     
     if price_with_co_invest == 0:
-        logger.warning(f"Цена с соинвестом равна 0 для продукта {product_id}")
+        logger.warning(f"Цена с соинвестом равна 0 для продукта {offer_id}")
         return None
         
     discount_ozon_with_wallet = round(1 - price_with_discount_ozon / price_with_co_invest, 2)
-    price_ozon_s_be_with_wallet = int(math.floor(price_with_discount_wb * 1.01))
+    price_ozon_s_be_with_wallet = int(math.floor(price_with_discount_wb * distinction))
     
     if discount_ozon_with_wallet >= 1:
-        logger.warning(f"Скидка Ozon кошелька >= 1 для продукта {product_id}")
+        logger.warning(f"Скидка Ozon кошелька >= 1 для продукта {offer_id}")
         return None
         
     price_ozon_s_be_with_co_invest = int(math.floor(price_ozon_s_be_with_wallet / (1 - discount_ozon_with_wallet)))
 
     if discount_co_invest >= 1:
-        logger.warning(f"Скидка соинвеста >= 1 для продукта {product_id}")
+        logger.warning(f"Скидка соинвеста >= 1 для продукта {offer_id}")
         return None
         
     if price_ozon_s_be_with_co_invest > 0:
@@ -136,33 +175,135 @@ def process_product(wb_arts, ozon_arts, prices_with_discount_wb, prices_with_dis
         price_ozon_s_be = price_without_co_invest
 
     return {
-        'Артикул товара на Ozon': product_id,
-        'Артикул товара на WB': wb_arts,
-        'Цены': {
-            'Цена на WB с кошельком': price_with_discount_wb,
-            'Цена товара в Ozon с учетом кошелька': price_with_discount_ozon,
-            'Цена в Ozon без соинвеста': price_without_co_invest,
-            'Цена в Ozon с соинвестом': price_with_co_invest,
-            'Скидка соинвеста': discount_co_invest,
-            'Скидка Ozon кошелька': discount_ozon_with_wallet,
-            'Цена на Ozon с кошельком, которая должна быть': price_ozon_s_be_with_wallet,
-            'Цена на Ozon с соинвестом, которая должна быть': price_ozon_s_be_with_co_invest,
-            'Цена, которая должна быть на Ozon': price_ozon_s_be
+            "auto_action_enabled": "DISABLED",
+            "auto_add_to_ozon_actions_list_enabled": "DISABLED",
+            "currency_code": "RUB",
+            "min_price": str(min_price),
+            "min_price_for_auto_actions_enabled": True,
+            "net_price": str(net_price),
+            "offer_id": str(offer_id),
+            "old_price": str(old_price),
+            "price": str(price_ozon_s_be),
+            "price_strategy_enabled": "DISABLED",
+            "product_id": int(product_id),
+            # "quant_size": 1,
+            "vat": str(vat)
         }
+
+def process_price(wb_articul, old_price, wb_price, wb_old_price):
+    """Обрабатывает один продукт и возвращает данные о ценах для WB"""
+    # Проверяем какая цена, спарсенная или необходимая, больше или меньше
+    if wb_price < old_price:
+        # Если спарсенная цена больше от необходимой
+        price_difference = 1 - wb_price / old_price
+        new_price = math.floor(wb_old_price * (1 - price_difference))
+    elif old_price < wb_price:
+        # Если спарсенная цена меньше от необходимой
+        price_difference = 1 - old_price / wb_price
+        new_price = math.floor(wb_old_price / (1 - price_difference))
+    else:
+        # Если равны, то пропускаем "итерацию"
+        return None
+
+    return {
+        "nmID": int(wb_articul),
+        "price": int(new_price)
     }
 
 # @shared_task
 def change_price():
-    products = []
+
+    params_for_ozon_post_all = {"prices": []}
+    params_for_wb_post_all = {"data": []}
+    prices_data_dict_wb = {}
 
     for wb_art, ozon_art in seller_arts.items():
+
+        headers_for_wb = get_headers_for_wb(wb_art)
+        params_for_wb_get = {
+            "limit": 1000
+        }
+    
+        try:
+            response_from_wb_get = requests.get(url_wb_get, headers=headers_for_wb, json=params_for_wb_get)
+            response_from_wb_get.raise_for_status()
+            
+            # Проверяем, что есть данные в ответе
+            response_data = response_from_wb_get.json()
+            if not response_data.get('data') or len(response_data['data']['listGoods']) == 0:
+                logger.warning(f"Товары не найден в ответе API WB")
+                continue
+
+        except (requests.RequestException, KeyError, IndexError) as e:
+            logger.error(f"Ошибка получения данных товаров с WB: {e}")
+            continue
+
+        for price_data_wb in response_data['data']['listGoods']:
+            # Проверяем на наличие данных о цене у товара
+            if price_data_wb['sizes'][0]['price']:
+                prices_data_dict_wb[price_data_wb['nmID']] = price_data_wb['sizes'][0]['price']
+            else:
+                logger.info(f"Не нашлись данные цены для {price_data_wb['nmID']}")
+
+        try:
+            prices_with_discount_wb = parse_from_wb(wb_art)
+            
+            # Проверяем, что парсинг прошел успешно
+            if not prices_with_discount_wb:
+                logger.error(f"Не удалось распарсить цены для WB арт {wb_art}")
+                continue
+                
+        except Exception as e:
+            logger.error(f"Ошибка парсинга для WB арт {wb_art}: {e}")
+            continue
+        
+        prices_dict = get_prices_dict(wb_art)
+
+        for wb_articul, wb_price in prices_dict.items():
+            # Проверям на равенство цены насранице WB от ожидаемой
+            if wb_articul not in prices_with_discount_wb:
+                logger.warning(f"Артикул {wb_articul} не найден в распарсенных ценах WB")
+                continue
+            old_price = prices_with_discount_wb[wb_articul]
+
+            if old_price and not (wb_price - span <= old_price <= wb_price + span):
+                if wb_articul not in prices_data_dict_wb:
+                    logger.warning(f"Артикул {wb_articul} не найден в данных WB API")
+                    continue
+                wb_old_price = prices_data_dict_wb[wb_articul]
+                new_price_for_wb = process_price(wb_articul, old_price, wb_price, wb_old_price)
+
+                # Проверяем на наличие полученных данных new_price_for_wb
+                if new_price_for_wb:
+                    logger.info(f"Новая цена для WB: {new_price_for_wb['price']}")
+                    params_for_wb_post_all['data'].append(new_price_for_wb)
+                else:
+                    logger.warning(f"Не удалось обработать цену продукта WB: {wb_articul}")
+                    continue
+            
+            else:
+                logger.warning(f"Нет данных по цене с парсенных результатов: {wb_articul}")
+                continue
+
+        res_for_wb = requests.post(url_wb_post, headers=headers_for_wb, json=params_for_wb_post_all)
+        logger.info(f"Статус ответа: {res_for_wb.status_code}")
+
+        if res_for_wb.status_code == 200 or res_for_wb.status_code == 208:
+            logger.info(f"Изменена ли цена товара {res_for_wb.json()['data']['id']}: {not res_for_wb.json()['data']['alreadyExists']}")
+            if res_for_wb.json()['data']['alreadyExists'] == True:
+                logger.info(f"Ошибки: {res_for_wb.json()['errorText']}")
+        else:
+            logger.info(f"Сообщение ошибки: {res_for_wb.json()['errorText']}")
+
+        time.sleep(5)
+
         try:
             prices_with_discount_wb = parse_from_wb(wb_art)
             prices_with_discount_ozon = parse_from_ozon(ozon_art)
             
             # Проверяем, что парсинг прошел успешно
             if not prices_with_discount_wb or not prices_with_discount_ozon:
-                logger.error(f"Не удалось распарсить цены для WB арт {wb_art}, Ozon арт {ozon_art[1]}")
+                logger.error(f"Не удалось распарсить цены для WB арт {wb_art}, Ozon арт {ozon_art}")
                 continue
                 
         except Exception as e:
@@ -171,7 +312,7 @@ def change_price():
 
         headers_for_ozon = get_headers_for_ozon(ozon_art)
         product_arts_dict = get_product_arts(ozon_art)
-        
+
         # Проверяем, что словарь артикулов не пустой
         if not product_arts_dict:
             logger.warning(f"Не найден словарь артикулов для Ozon арт {ozon_art}")
@@ -183,42 +324,34 @@ def change_price():
                 logger.warning(f"Некорректная структура ozon_arts для WB арт {wb_arts}: {ozon_arts}")
                 continue
                 
-            product_data = process_product(
+            params_for_ozon_post = process_product(
                 wb_arts, ozon_arts, prices_with_discount_wb, 
                 prices_with_discount_ozon, headers_for_ozon
             )
-            
-            if product_data:
-                products.append(product_data)
+
+            if params_for_ozon_post:
+                params_for_ozon_post_all['prices'].append(params_for_ozon_post)
             else:
                 logger.warning(f"Не удалось обработать продукт WB: {wb_arts}, Ozon: {ozon_arts}")
 
-    # Сохранение результатов в JSON
-    try:
-        with open('products.json', 'w', encoding='utf-8') as f:
-            json.dump(products, f, ensure_ascii=False, indent=4)
-        logger.info(f"Успешно сохранено {len(products)} продуктов в products.json")
-    except Exception as e:
-        logger.error(f"Ошибка сохранения в JSON: {e}")
+        res_for_ozon = requests.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post_all)
+        logger.info(f"Статус ответа: {res_for_ozon.status_code}")
+
+        if res_for_ozon.status_code == 200:
+            for i in range(len(res_for_ozon.json()['result'])):
+                logger.info(f"Изменена ли цена товара {res_for_ozon.json()['result'][i]['offer_id']}: {res_for_ozon.json()['result'][i]['updated']}")
+                if res_for_ozon.json()['result'][i]['updated'] == False:
+                    logger.info(f"Ошибки: {res_for_ozon.json()['result'][i]['errors']}")
+        else:
+            logger.info(f"Код ошибки: {res_for_ozon.json()['code']}, сообщение ошибки: {res_for_ozon.json()['message']}")
 
 if __name__ == "__main__":
     change_price()
 
 
-def validate_products():
-    """Проверяет корректность артикулов в файлах"""
-    for filename in ['price_changer/prod_arts_cab1.txt', 'price_changer/prod_arts_cab2.txt']:
-        products = load_dict_from_file(filename)
-        print(f"\nПроверка файла {filename}:")
-        
-        for wb_art, ozon_arts in products.items():
-            if not isinstance(ozon_arts, list) or len(ozon_arts) != 2:
-                print(f"❌ Некорректная структура для WB арт {wb_art}: {ozon_arts}")
-            else:
-                print(f"✅ WB: {wb_art} -> Ozon: {ozon_arts[0]} (product_id), {ozon_arts[1]} (article)")
 
-# if __name__ == "__main__":
-#     validate_products()
+
+
 
 # from celery import shared_task
 # import requests
@@ -438,27 +571,6 @@ def validate_products():
 #                     # logger.info(product_from_wb)
 #                     # product_from_wb.save()
 
-#                     product = {
-#                             'Артикул товара на Ozon': product_id,
-#                             'Артикул товара на WB': wb_arts,
-#                             'Цены':{
-#                                 'Цена на WB с кошельком': price_with_discount_wb,
-#                                 'Цена товара в Ozon с учетом кошелька': price_with_discount_ozon,
-#                                 'Цена в Ozon без соинвеста': price_without_co_invest,
-#                                 'Цена в Ozon с соинвестом': price_with_co_invest,
-#                                 'Скидка соинвеста': discount_co_invest,
-#                                 'Скидка Ozon кошелька': discount_ozon_with_wallet,
-#                                 'Цена на Ozon с кошельком, которая должна быть': price_ozon_s_be_with_wallet,
-#                                 'Цена на Ozon с соинвестом, которая должна быть': price_ozon_s_be_with_co_invest,
-#                                 'Цена, которая должна быть на Ozon': price_ozon_s_be
-#                             }
-#                     }
-
-#                     prodacts.append(product)
-
-#     with open('products.json', 'w', encoding='utf-8') as f:
-#         json.dump(prodacts, f, ensure_ascii=False, indent=4)
-
 #         # params_for_ozon_post = {
 #         #     "prices": {
 #         #         "auto_action_enabled": "DISABLED",
@@ -478,6 +590,3 @@ def validate_products():
 #         # }
 
 #         # requests.post(url_ozon_post, headers=headers_for_ozon, json=params_for_ozon_post)       
-
-# if __name__ == "__main__":
-#     change_price()

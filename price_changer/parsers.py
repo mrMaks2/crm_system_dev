@@ -1,6 +1,5 @@
 import logging
 from DrissionPage import ChromiumPage, ChromiumOptions
-from random import randint
 import re
 import time
 import tempfile
@@ -14,7 +13,7 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger('price_changer.tasks')
+logger = logging.getLogger('price_changer.parsers')
 
 ua = UserAgent(browsers='chrome', os='windows', platforms='pc')
 
