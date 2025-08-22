@@ -223,11 +223,6 @@ def parse_from_wb(art):
             "xpath://ins[contains(@class, 'wallet-price')]",
             "xpath://ins[contains(@class, 'price__lower-price')]",
         ]
-
-        article_selectors = [
-            "xpath://a[contains(@class, 'product-card__link') and contains(@class, 'j-card-link') and contains(@class, 'j-open-full-product-card')]",
-            "xpath://span[contains(@class, 'j-open-full-product-card')]",
-        ]
         
         result = {}
         block_elements = []
@@ -267,13 +262,12 @@ def parse_from_wb(art):
                 logger.info("Элемент с ценой в WB не найден")
 
             article_element = None
-            for article_selector in article_selectors:
-                try:
-                    article_element = block_element.attr('data-nm-id')
-                    if article_element:
-                        break
-                except:
-                    continue
+            try:
+                article_element = block_element.attr('data-nm-id')
+                if article_element:
+                    break
+            except:
+                continue
             
             if article_element:
                 article_number = int(article_element.strip())

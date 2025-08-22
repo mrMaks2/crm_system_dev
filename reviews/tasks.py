@@ -16,6 +16,7 @@ logger = logging.getLogger('review_tasks.tasks')
 load_dotenv()
 jwt_reviews = os.getenv('jwt_reviews')
 jwt_for_resp_and_get_cab1 = os.getenv('jwt_for_resp_and_get_cab1')
+jwt_for_resp_and_get_cab2 = os.getenv('jwt_for_resp_and_get_cab2')
 url_for_reviews = 'https://feedbacks-api.wildberries.ru/api/v1/feedbacks'
 url_for_response = 'https://feedbacks-api.wildberries.ru/api/v1/feedbacks/answer'
 
@@ -68,33 +69,40 @@ def response_to_reviews():
     with open('reviews/response_list.txt', 'r', encoding='utf-8') as f:
         response_list = [str(resp.strip().strip('"')) for resp in f.readlines()]
 
+    params_reviews = {
+            "isAnswered":'false',
+            "take":5000,
+            "skip":0
+        }
 
     headers_cab1 = {
         'Authorization':jwt_for_resp_and_get_cab1
     }
 
-    params_reviews_cab1 = {
-            "isAnswered":'false',
-            "take":5000,
-            "skip":0
-        }
+    headers_cab2 = {
+        'Authorization':jwt_for_resp_and_get_cab2
+    }
     
-    response = requests.get(url_for_reviews, headers=headers_cab1, params=params_reviews_cab1)
-    reviews_data = response.json()
+    headers_list = [headers_cab1, headers_cab2]
 
-    ids = []
+    for headers in headers_list:
 
-    for review in reviews_data['data']['feedbacks']:
-        if review['productValuation'] == 5 or review['productValuation'] == 4:
-            review_id = review['id']
-            ids.append(review_id)
+        response = requests.get(url_for_reviews, headers=headers, params=params_reviews)
+        reviews_data = response.json()
 
-    logger.info(ids)
+        ids = []
 
-    for review_id in ids:
-        params_response_cab1 = {
-            "id": review_id,
-            "text": response_list[randint(0,38)]
-        }
-        logger.info(params_response_cab1['text'])
-        requests.post(url_for_response, headers=headers_cab1, json=params_response_cab1)
+        for review in reviews_data['data']['feedbacks']:
+            if review['productValuation'] == 5 or review['productValuation'] == 4:
+                review_id = review['id']
+                ids.append(review_id)
+
+        logger.info(ids)
+
+        for review_id in ids:
+            params_response = {
+                "id": review_id,
+                "text": response_list[randint(0,38)]
+            }
+            logger.info(params_response['text'])
+            requests.post(url_for_response, headers=headers, json=params_response)
