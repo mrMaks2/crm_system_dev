@@ -24,6 +24,24 @@ headers_reviews = {
         'Authorization':jwt_reviews
     }
 
+with open('reviews/response_list.txt', 'r', encoding='utf-8') as f:
+        response_list = [str(resp.strip().strip('"')) for resp in f.readlines()]
+
+params_reviews = {
+        "isAnswered":'false',
+        "take":5000,
+        "skip":0
+    }
+
+headers_cab1 = {
+    'Authorization':jwt_for_resp_and_get_cab1
+}
+
+headers_cab2 = {
+    'Authorization':jwt_for_resp_and_get_cab2
+}
+
+headers_list = [headers_cab1, headers_cab2]
 
 @shared_task
 def fetch_reviews():
@@ -66,25 +84,6 @@ def deleter_reviews():
 # @shared_task
 def response_to_reviews():
 
-    with open('reviews/response_list.txt', 'r', encoding='utf-8') as f:
-        response_list = [str(resp.strip().strip('"')) for resp in f.readlines()]
-
-    params_reviews = {
-            "isAnswered":'false',
-            "take":5000,
-            "skip":0
-        }
-
-    headers_cab1 = {
-        'Authorization':jwt_for_resp_and_get_cab1
-    }
-
-    headers_cab2 = {
-        'Authorization':jwt_for_resp_and_get_cab2
-    }
-    
-    headers_list = [headers_cab1, headers_cab2]
-
     for headers in headers_list:
 
         response = requests.get(url_for_reviews, headers=headers, params=params_reviews)
@@ -106,3 +105,6 @@ def response_to_reviews():
             }
             logger.info(params_response['text'])
             requests.post(url_for_response, headers=headers, json=params_response)
+
+if __name__ == "__main__":
+    response_to_reviews()

@@ -1,4 +1,5 @@
 # from celery import shared_task
+import json
 import time
 import requests
 import os
@@ -21,8 +22,8 @@ logging.basicConfig(
 logger = logging.getLogger('price_changer.tasks')
 
 load_dotenv()
-span = int(os.getenv('span'))
-distinction = int(os.getenv('distinction'))
+span = os.getenv('span')
+distinction = os.getenv('distinction')
 jwt_price_cab1 = os.getenv('jwt_price_cab1')
 jwt_price_cab2 = os.getenv('jwt_price_cab2')
 client_id_cab1 = os.getenv('client_id_cab1')
@@ -73,7 +74,7 @@ def get_headers_for_wb(wb_art):
         return {
             'Authorization': jwt_price_cab1,
         }
-    else:
+    elif wb_art == 1391979:
         return {
             'Authorization': jwt_price_cab2,
         }
@@ -157,7 +158,7 @@ def process_product(wb_arts, ozon_arts, prices_with_discount_wb, prices_with_dis
         return None
         
     discount_ozon_with_wallet = round(1 - price_with_discount_ozon / price_with_co_invest, 2)
-    price_ozon_s_be_with_wallet = int(math.floor(price_with_discount_wb * distinction))
+    price_ozon_s_be_with_wallet = int(math.floor(price_with_discount_wb * float(distinction)))
     
     if discount_ozon_with_wallet >= 1:
         logger.warning(f"Скидка Ozon кошелька >= 1 для продукта {offer_id}")
@@ -195,11 +196,11 @@ def process_price(wb_articul, old_price, wb_price, wb_old_price):
     # Проверяем какая цена, спарсенная или необходимая, больше или меньше
     if wb_price < old_price:
         # Если спарсенная цена больше от необходимой
-        price_difference = 1 - wb_price / old_price
+        price_difference = round(1 - wb_price / old_price, 5)
         new_price = math.floor(wb_old_price * (1 - price_difference))
     elif old_price < wb_price:
         # Если спарсенная цена меньше от необходимой
-        price_difference = 1 - old_price / wb_price
+        price_difference = round(1 - old_price / wb_price, 5)
         new_price = math.floor(wb_old_price / (1 - price_difference))
     else:
         # Если равны, то пропускаем "итерацию"
@@ -225,13 +226,13 @@ def change_price():
         }
     
         try:
-            response_from_wb_get = requests.get(url_wb_get, headers=headers_for_wb, json=params_for_wb_get)
+            response_from_wb_get = requests.get(url_wb_get, headers=headers_for_wb, params=params_for_wb_get)
             response_from_wb_get.raise_for_status()
-            
+
             # Проверяем, что есть данные в ответе
             response_data = response_from_wb_get.json()
             if not response_data.get('data') or len(response_data['data']['listGoods']) == 0:
-                logger.warning(f"Товары не найден в ответе API WB")
+                logger.warning(f"Товары не найдены в ответе API WB")
                 continue
 
         except (requests.RequestException, KeyError, IndexError) as e:
@@ -243,7 +244,7 @@ def change_price():
             if price_data_wb['sizes'][0]['price']:
                 prices_data_dict_wb[price_data_wb['nmID']] = price_data_wb['sizes'][0]['price']
             else:
-                logger.info(f"Не нашлись данные цены для {price_data_wb['nmID']}")
+                logger.info(f"Не нашлись данные цены для изменения цены на WB {price_data_wb['nmID']}")
 
         try:
             prices_with_discount_wb = parse_from_wb(wb_art)
@@ -266,7 +267,7 @@ def change_price():
                 continue
             old_price = prices_with_discount_wb[wb_articul]
 
-            if old_price and not (wb_price - span <= old_price <= wb_price + span):
+            if old_price and not (wb_price - int(span) <= old_price <= wb_price + int(span)):
                 if wb_articul not in prices_data_dict_wb:
                     logger.warning(f"Артикул {wb_articul} не найден в данных WB API")
                     continue
@@ -275,6 +276,7 @@ def change_price():
 
                 # Проверяем на наличие полученных данных new_price_for_wb
                 if new_price_for_wb:
+                    logger.info(f"Старая цена на WB: {old_price}")
                     logger.info(f"Новая цена для WB: {new_price_for_wb['price']}")
                     params_for_wb_post_all['data'].append(new_price_for_wb)
                 else:
@@ -285,15 +287,19 @@ def change_price():
                 logger.warning(f"Нет данных по цене с парсенных результатов: {wb_articul}")
                 continue
 
-        res_for_wb = requests.post(url_wb_post, headers=headers_for_wb, json=params_for_wb_post_all)
-        logger.info(f"Статус ответа: {res_for_wb.status_code}")
 
-        if res_for_wb.status_code == 200 or res_for_wb.status_code == 208:
-            logger.info(f"Изменена ли цена товара {res_for_wb.json()['data']['id']}: {not res_for_wb.json()['data']['alreadyExists']}")
-            if res_for_wb.json()['data']['alreadyExists'] == True:
-                logger.info(f"Ошибки: {res_for_wb.json()['errorText']}")
-        else:
-            logger.info(f"Сообщение ошибки: {res_for_wb.json()['errorText']}")
+        with open('products.json', 'w', encoding='utf-8') as f:
+            json.dump(params_for_wb_post_all, f, ensure_ascii=False, indent=4)
+
+        # res_for_wb = requests.post(url_wb_post, headers=headers_for_wb, json=params_for_wb_post_all)
+        # logger.info(f"Статус ответа: {res_for_wb.status_code}")
+
+        # if res_for_wb.status_code in (200, 208):
+        #     logger.info(f"Изменена ли цена товара {res_for_wb.json()['data']['id']}: {not res_for_wb.json()['data']['alreadyExists']}")
+        #     if res_for_wb.json()['data']['alreadyExists'] == True:
+        #         logger.info(f"Ошибки: {res_for_wb.json()['errorText']}")
+        # else:
+        #     logger.info(f"Сообщение ошибки: {res_for_wb.json()['errorText']}")
 
         time.sleep(5)
 

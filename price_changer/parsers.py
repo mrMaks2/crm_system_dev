@@ -123,7 +123,7 @@ def parse_from_ozon(art):
                 if block_elements:
                     logger.info(f"Найдено {len(block_elements)} блоков товаров")
                     break
-            except:
+            except Exception as e:
                 logger.info(f"Селектор {block_selector} не сработал: {e}")
                 continue
 
@@ -148,6 +148,7 @@ def parse_from_ozon(art):
                 logger.info(f"Цена товара: {price_with_discount_ozon}")
             else:
                 logger.info("Элемент с ценой в Ozon не найден")
+                continue
 
             article_element = None
             for article_selector in article_selectors:
@@ -169,6 +170,7 @@ def parse_from_ozon(art):
                     logger.info(f"Артикл товара: {article_number}")
             else:
                 logger.info("Элемент с артиклом в Ozon не найден")
+                continue
 
             result[article_number] = price_with_discount_ozon
             
@@ -235,7 +237,7 @@ def parse_from_wb(art):
                 if block_elements:
                     logger.info(f"Найдено {len(block_elements)} блоков товаров")
                     break
-            except:
+            except Exception as e:
                 logger.info(f"Селектор {block_selector} не сработал: {e}")
                 continue
 
@@ -251,22 +253,23 @@ def parse_from_wb(art):
                     price_element = block_element.ele(price_selector)
                     if price_element and price_element.text.strip():
                         break
-                except:
+                except Exception as e:
+                    logger.info(f"Не удалось найти цену: {e}")
                     continue
             
             if price_element:
                 price_text = price_element.text.strip()
-                price_with_discount_ozon = int(re.sub(r'\D', '', price_text))
-                logger.info(f"Цена товара: {price_with_discount_ozon}")
+                price_with_discount_wb = int(re.sub(r'\D', '', price_text))
+                logger.info(f"Цена товара: {price_with_discount_wb}")
             else:
                 logger.info("Элемент с ценой в WB не найден")
+                continue
 
             article_element = None
             try:
                 article_element = block_element.attr('data-nm-id')
-                if article_element:
-                    break
-            except:
+            except Exception as e:
+                logger.info(f"Не удалось получить артикул: {e}")
                 continue
             
             if article_element:
@@ -274,8 +277,9 @@ def parse_from_wb(art):
                 logger.info(f"Артикл товара: {article_number}")
             else:
                 logger.info("Элемент с артиклом в WB не найден")
+                continue
 
-            result[article_number] = price_with_discount_ozon
+            result[article_number] = price_with_discount_wb
             
         return result
 
