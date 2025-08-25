@@ -1,5 +1,5 @@
 # from celery import shared_task
-import json
+# import json
 import time
 import requests
 import os
@@ -34,6 +34,7 @@ url_ozon_get = 'https://api-seller.ozon.ru/v5/product/info/prices'
 url_ozon_post = 'https://api-seller.ozon.ru/v1/product/import/prices'
 url_wb_get = 'https://discounts-prices-api.wildberries.ru/api/v2/list/goods/filter'
 url_wb_post = 'https://discounts-prices-api.wildberries.ru/api/v2/upload/task'
+url_upload_status = 'https://discounts-prices-api.wildberries.ru/api/v2/history/tasks'
 
 def load_dict_from_file(filename):
     """Загружает словарь из текстового файла"""
@@ -171,7 +172,7 @@ def process_product(wb_arts, ozon_arts, prices_with_discount_wb, prices_with_dis
         return None
         
     if price_ozon_s_be_with_co_invest > 0:
-        price_ozon_s_be = math.floor(price_ozon_s_be_with_co_invest / (1 - discount_co_invest))
+        price_ozon_s_be = int(math.floor(price_ozon_s_be_with_co_invest / (1 - discount_co_invest)))
     else:
         price_ozon_s_be = price_without_co_invest
 
@@ -197,11 +198,11 @@ def process_price(wb_articul, old_price, wb_price, wb_old_price):
     if wb_price < old_price:
         # Если спарсенная цена больше от необходимой
         price_difference = round(1 - wb_price / old_price, 5)
-        new_price = math.floor(wb_old_price * (1 - price_difference))
+        new_price = int(math.floor(wb_old_price * (1 - price_difference)))
     elif old_price < wb_price:
         # Если спарсенная цена меньше от необходимой
         price_difference = round(1 - old_price / wb_price, 5)
-        new_price = math.floor(wb_old_price / (1 - price_difference))
+        new_price = int(math.floor(wb_old_price / (1 - price_difference)))
     else:
         # Если равны, то пропускаем "итерацию"
         return None
@@ -228,44 +229,44 @@ def change_price():
         try:
             response_from_wb_get = requests.get(url_wb_get, headers=headers_for_wb, params=params_for_wb_get)
             response_from_wb_get.raise_for_status()
-
-            # Проверяем, что есть данные в ответе
             response_data = response_from_wb_get.json()
-            if not response_data.get('data') or len(response_data['data']['listGoods']) == 0:
-                logger.warning(f"Товары не найдены в ответе API WB")
-                continue
 
         except (requests.RequestException, KeyError, IndexError) as e:
             logger.error(f"Ошибка получения данных товаров с WB: {e}")
-            continue
 
-        for price_data_wb in response_data['data']['listGoods']:
-            # Проверяем на наличие данных о цене у товара
-            if price_data_wb['sizes'][0]['price']:
-                prices_data_dict_wb[price_data_wb['nmID']] = price_data_wb['sizes'][0]['price']
-            else:
-                logger.info(f"Не нашлись данные цены для изменения цены на WB {price_data_wb['nmID']}")
+        if response_data.get('data') or len(response_data['data']['listGoods']) != 0:
+            for price_data_wb in response_data['data']['listGoods']:
+                # Проверяем на наличие данных о цене у товара
+                if price_data_wb['sizes'][0]['price']:
+                    prices_data_dict_wb[price_data_wb['nmID']] = price_data_wb['sizes'][0]['price']
+                else:
+                    logger.info(f"Не нашлись данные цены для изменения цены на WB {price_data_wb['nmID']}")
+                    continue
+        else:
+            logger.warning(f"Товары не найдены в ответе WB API")
 
         try:
-            prices_with_discount_wb = parse_from_wb(wb_art)
-            
-            # Проверяем, что парсинг прошел успешно
-            if not prices_with_discount_wb:
-                logger.error(f"Не удалось распарсить цены для WB арт {wb_art}")
-                continue
+            if response_data:
+                prices_with_discount_wb_price = parse_from_wb(wb_art)
+                
+                # Проверяем, что парсинг прошел успешно
+                if not prices_with_discount_wb_price:
+                    logger.error(f"Не удалось распарсить цены для WB арт {wb_art}")
+
+            else:
+                raise ValueError('Отсутсвуют данные после обращения к WB API')
                 
         except Exception as e:
             logger.error(f"Ошибка парсинга для WB арт {wb_art}: {e}")
-            continue
         
         prices_dict = get_prices_dict(wb_art)
 
         for wb_articul, wb_price in prices_dict.items():
             # Проверям на равенство цены насранице WB от ожидаемой
-            if wb_articul not in prices_with_discount_wb:
+            if wb_articul not in prices_with_discount_wb_price:
                 logger.warning(f"Артикул {wb_articul} не найден в распарсенных ценах WB")
                 continue
-            old_price = prices_with_discount_wb[wb_articul]
+            old_price = prices_with_discount_wb_price[wb_articul]
 
             if old_price and not (wb_price - int(span) <= old_price <= wb_price + int(span)):
                 if wb_articul not in prices_data_dict_wb:
@@ -276,32 +277,55 @@ def change_price():
 
                 # Проверяем на наличие полученных данных new_price_for_wb
                 if new_price_for_wb:
-                    logger.info(f"Старая цена на WB: {old_price}")
+                    logger.info(f"Старая цена на WB: {wb_old_price}")
                     logger.info(f"Новая цена для WB: {new_price_for_wb['price']}")
                     params_for_wb_post_all['data'].append(new_price_for_wb)
                 else:
                     logger.warning(f"Не удалось обработать цену продукта WB: {wb_articul}")
                     continue
             
+            elif old_price:
+                logger.info(f"Цена товара находится в диапозоне {wb_price}+-{int(span)}")
+                continue
             else:
                 logger.warning(f"Нет данных по цене с парсенных результатов: {wb_articul}")
                 continue
 
 
-        with open('products.json', 'w', encoding='utf-8') as f:
-            json.dump(params_for_wb_post_all, f, ensure_ascii=False, indent=4)
+        # with open('products.json', 'w', encoding='utf-8') as f:
+        #     json.dump(params_for_wb_post_all, f, ensure_ascii=False, indent=4)
 
-        # res_for_wb = requests.post(url_wb_post, headers=headers_for_wb, json=params_for_wb_post_all)
-        # logger.info(f"Статус ответа: {res_for_wb.status_code}")
+        if len(params_for_wb_post_all['data']) != 0:
+            res_for_wb = requests.post(url_wb_post, headers=headers_for_wb, json=params_for_wb_post_all)
+            logger.info(f"Статус ответа: {res_for_wb.status_code}")
+        else:
+            logger.info('Пустой список для изменения цен')
 
-        # if res_for_wb.status_code in (200, 208):
-        #     logger.info(f"Изменена ли цена товара {res_for_wb.json()['data']['id']}: {not res_for_wb.json()['data']['alreadyExists']}")
-        #     if res_for_wb.json()['data']['alreadyExists'] == True:
-        #         logger.info(f"Ошибки: {res_for_wb.json()['errorText']}")
-        # else:
-        #     logger.info(f"Сообщение ошибки: {res_for_wb.json()['errorText']}")
+        if res_for_wb:
+            if res_for_wb.status_code in (200, 208):
+                logger.info(f"Изменены ли цены товаров по загрузке {res_for_wb.json()['data']['id']} на WB: {not res_for_wb.json()['data']['alreadyExists']}")
+                if res_for_wb.json()['data']['alreadyExists'] == True:
+                    logger.info(f"Ошибки: {res_for_wb.json()['errorText']}")
 
-        time.sleep(5)
+            try:
+                id_upload_status = res_for_wb.json()['data']['id']
+                params_for_upload_status = {
+                    "uploadID": int(id_upload_status)
+                }
+            except:
+                logger.info('Ошибка получения ID загрузки')
+
+            time.sleep(5)
+            try:
+                res_upload_status = requests.post(url_upload_status, headers=headers_for_wb, json=params_for_upload_status)
+                if res_upload_status.status_code == 200:
+                    logger.info(f"Статус обновления цены: {res_upload_status.json()['data']['status']}")
+                else:
+                    logger.info(res_upload_status.status_code)
+            except Exception as e:
+                logger.info(f"Ошибка получения статуса обновления цены нв WB: {e}")
+        else:
+            logger.info('POST запрос на изменения цен на WB не был отправлен')
 
         try:
             prices_with_discount_wb = parse_from_wb(wb_art)
@@ -345,7 +369,7 @@ def change_price():
 
         if res_for_ozon.status_code == 200:
             for i in range(len(res_for_ozon.json()['result'])):
-                logger.info(f"Изменена ли цена товара {res_for_ozon.json()['result'][i]['offer_id']}: {res_for_ozon.json()['result'][i]['updated']}")
+                logger.info(f"Изменена ли цена товара {res_for_ozon.json()['result'][i]['offer_id']} на Ozon: {res_for_ozon.json()['result'][i]['updated']}")
                 if res_for_ozon.json()['result'][i]['updated'] == False:
                     logger.info(f"Ошибки: {res_for_ozon.json()['result'][i]['errors']}")
         else:

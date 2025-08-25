@@ -92,7 +92,7 @@ def response_to_reviews():
         ids = []
 
         for review in reviews_data['data']['feedbacks']:
-            if review['productValuation'] == 5 or review['productValuation'] == 4:
+            if review['productValuation'] in (4, 5):
                 review_id = review['id']
                 ids.append(review_id)
 
