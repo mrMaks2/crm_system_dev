@@ -62,7 +62,7 @@ def review_list(request):
         'paginator': paginator,
         'params': params,
     }
-    return render(request, 'review_list.html', context)
+    return render(request, 'reviews/review_list.html', context)
 
 
 def calculate_similarity(text1, text2):
@@ -114,8 +114,8 @@ def reviews_checking(request):
                     'similarities': similarities if similarities else []
                 })
             
-            return render(request, 'reviews_checking.html', {'form': form, 'results': results})
+            return render(request, 'reviews/reviews_checking.html', {'form': form, 'results': results})
     else:
         form = ReviewsCheckingForm()
     
-    return render(request, 'reviews_checking.html', {'form': form, 'results': results})
+    return render(request, 'reviews/reviews_checking.html', {'form': form, 'results': results})

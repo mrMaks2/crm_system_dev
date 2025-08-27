@@ -1,7 +1,9 @@
 from django.db import models
 
+# docker exec -it web bash -c "find price_changer/migrations/ reviews/migrations/ -name '*.py' -not -name '__init__.py' -delete" - удаление миграций в Docker контейнере для дальнейшего пересоздания
+
 class Product_from_wb(models.Model):
-    prod_art_from_wb = models.CharField(max_length=255, unique=True, verbose_name='Артикул товара с WB')
+    prod_art_from_wb = models.CharField(max_length=255, verbose_name='Артикул товара с WB')
     price_with_discount_wb = models.IntegerField(null=True, blank=True, verbose_name='Цена с учетом скидки от кошелька')
     wb_old_price = models.IntegerField(null=True, blank=True, verbose_name='Старая цена до скидок')
     new_price_for_wb = models.IntegerField(null=True, blank=True, verbose_name='Новая цена до скидок')
@@ -15,7 +17,7 @@ class Product_from_wb(models.Model):
         return f'Товар с артикулом {self.prod_art_from_wb} с WB'
     
 class Product_from_ozon(models.Model):
-    prod_art_from_ozon = models.CharField(max_length=255, unique=True, verbose_name='Артикул товара с Ozon')
+    prod_art_from_ozon = models.CharField(max_length=255, verbose_name='Артикул товара с Ozon')
     price_with_discount_ozon = models.IntegerField(null=True, blank=True, verbose_name='Цена с учетом скидки от кошелька')
     price_ozon_s_be = models.IntegerField(null=True, blank=True, verbose_name='Цена, которая должна быть на Ozon')
     price_with_co_invest = models.IntegerField(null=True, blank=True, verbose_name='Цена с соинвестом')

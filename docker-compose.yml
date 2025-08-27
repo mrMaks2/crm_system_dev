@@ -16,7 +16,10 @@ services:
     depends_on:
       - db
       - redis
-    command: python manage.py runserver 0.0.0.0:8000
+    command: >
+      sh -c "python manage.py makemigrations --check --dry-run || python manage.py makemigrations &&
+            python manage.py migrate &&
+            python manage.py runserver 0.0.0.0:8000"
 
   worker:
     container_name: worker

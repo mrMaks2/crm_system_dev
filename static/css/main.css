@@ -1,0 +1,8 @@
+@font-face {
+    font-family: Ranga;
+    src: url(../fonts/Ranga-Regular.ttf);
+}
+#brand {
+    font-family: Ranga;
+    color: #FFF
+}

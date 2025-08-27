@@ -1,3 +1,4 @@
+{% load static %}
 {% url 'reviews:review_list' as review_list_url %}
 {% url 'reviews:check' as reviews_check_url %}
 
@@ -23,45 +24,42 @@
 
     <!-- Tempus Dominus Bootstrap 4 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tempusdominus-bootstrap-4/5.39.0/css/tempusdominus-bootstrap-4.min.css"/>
+
+    <link rel="icon" href=" {% static 'favicon.ico' %} ">
+    <link rel="stylesheet" href=" {% static 'css/main.css' %} ">
+
+    <style>
+      .navbar-brand-img {
+        height: 40px;
+        width: auto;
+        max-height: 100%;
+      }
+    </style>
     
     <title>{% block title %}Base title{% endblock %}</title>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-light container" style="background-color: #e3f2fd;">
-      <a class="navbar-brand" href="#">LeFami</a> {% comment %}{% url 'home' %}{% endcomment %}
+      <img src="{% static 'images/logo.png' %}" alt="LeFami Logo" class="navbar-brand-img">
+      <span class="sr-only">LeFami</span>
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNavDropdown">
         <ul class="navbar-nav ml-auto">
-          <li class="nav-item {% if request.path == review_list_url %} active {% endif %}">
-            <a class="nav-link" href="{% url 'reviews:review_list' %}">Отзывы </a>
-          </li>
-          <li class="nav-item {% if request.path == reviews_check_url %} active {% endif %}">
-            <a class="nav-link" href="{% url 'reviews:check' %}">Проверка отзыва</a>
-          </li>
-          <li> {% comment %}class="nav-item {% if request.path == route_list %} active {% endif %}"{% endcomment %}
-            <a class="nav-link" href="#">Задача2</a> {% comment %}{% url 'list' %}{% endcomment %}
-          </li>
-          {% comment %} {% if user.is_authenticated %}
-          <li class="nav-item dropdown {% if request.path == cities_create_url or request.path == trains_create_url %} active {% endif %}">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-              Добавить
-            </a>
-            <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-              <a class="dropdown-item" href="{% url 'cities:create' %}">Новый город</a>
-              <a class="dropdown-item" href="{% url 'trains:create' %}">Новый поезд</a>
-            </div>
-            {% else %}
-            <li class="nav-item">
-              <a class="nav-link disabled" href="">Добавить</a>
-            </li>
-            {% endif %}
-          </li>
           {% if user.is_authenticated %}
+            <li class="nav-item {% if request.path == review_list_url %} active {% endif %}">
+              <a class="nav-link" href="{% url 'reviews:review_list' %}">Отзывы </a>
+            </li>
+            <li class="nav-item {% if request.path == reviews_check_url %} active {% endif %}">
+              <a class="nav-link" href="{% url 'reviews:check' %}">Проверка отзыва</a>
+            </li>
+            <li> {% comment %}class="nav-item {% if request.path == route_list %} active {% endif %}"{% endcomment %}
+              <a class="nav-link" href="#">Задача2</a> {% comment %}{% url 'list' %}{% endcomment %}
+            </li>
             <li class="nav-item">
               <a class="nav-link" href="{% url 'accounts:logout' %}">Выйти</a>
-            </li>
+            </li>          
           {% else %}
             <li class="nav-item">
               <a class="nav-link" href="{% url 'accounts:login' %}">Войти</a>
@@ -69,11 +67,11 @@
             <li class="nav-item">
               <a class="nav-link" href="{% url 'accounts:register' %}">Регистрация</a>
             </li>
-          {% endif %} {% endcomment %}
+          {% endif %}
         </ul>
       </div>
     </nav>
-    <div class="container">
+    {% comment %} <div class="container">
       <div class="row">
         <div class="col-md-8 mx-auto my-2">
           {% if messages %}
@@ -97,7 +95,7 @@
           {% endif %}
         </div>
       </div>
-    </div>
+    </div> {% endcomment %}
     <div class="container">
       {% block content %}{% endblock %}
     </div>

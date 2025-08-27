@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}LeFami{% endblock %}
+{% block content %}
+{% if user.is_authenticated %}
+    <div class="d-flex justify-content-center">
+        <div class="mx-auto">
+            <div>
+                <h1>Приветствую тебя, {{ username }}!</h1>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="d-flex justify-content-center">
+        <div class="mx-auto">
+            <div>
+                <h1>Приветствую тебя, мой дорогой друг!</h1>
+            </div>
+            <div>
+                <p>Для дальнейшего использования возможности данного сервиса, пожалуйста, <a href="{% url 'accounts:login' %}">войди</a> в систему под своими даными,
+                    либо <a href="{% url 'accounts:register' %}">зарегистрируйся</a>.</p>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
