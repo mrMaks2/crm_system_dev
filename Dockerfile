@@ -9,3 +9,5 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
 COPY . .
+
+RUN python manage.py collectstatic --noinput

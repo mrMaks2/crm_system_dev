@@ -17,9 +17,13 @@ services:
       - db
       - redis
     command: >
-      sh -c "python manage.py makemigrations --check --dry-run || python manage.py makemigrations &&
-            python manage.py migrate &&
+      sh -c "python manage.py migrate &&
             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+      - ./staticfiles:/app/staticfiles
+    environment:
+      - DJANGO_SETTINGS_MODULE=crm_project.settings
 
   worker:
     container_name: worker
@@ -62,3 +66,4 @@ services:
 
 volumes:
   postgres_data: {}
+  static_volume:
