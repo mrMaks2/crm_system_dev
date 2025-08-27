@@ -5,6 +5,4 @@ python-dotenv
 redis
 django-celery-beat
 psycopg2-binary
-sentence-transformers
-DrissionPage
-fake_useragent
+# sentence-transformers

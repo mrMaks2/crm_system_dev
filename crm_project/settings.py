@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from dotenv import load_dotenv
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -74,14 +76,16 @@ WSGI_APPLICATION = 'crm_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+load_dotenv()
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'crm_project',
-        'USER': 'maks',
-        'PASSWORD': 'maks',
-        'HOST': 'db',
-        'PORT': 5432,
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST', 'db'),
+        'PORT': int(os.getenv('DB_PORT', 5432)),
     }
 }
 
@@ -137,14 +141,6 @@ CELERY_BEAT_SCHEDULE = {
     },
     'deleter-reviews-every-15-minutes': {
         'task': 'reviews.tasks.deleter_reviews',
-        'schedule': crontab(minute='*/15'),
-    },
-    # 'response-to-reviews-every-720-minutes': {
-    #     'task': 'reviews.tasks.response_to_reviews',
-    #     'schedule': crontab(minute='*/720'),
-    # },
-    'price-change-every-15-minutes': {
-        'task': 'price_changer.tasks.change_price',
         'schedule': crontab(minute='*/15'),
     },
 }

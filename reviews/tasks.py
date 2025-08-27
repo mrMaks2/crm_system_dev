@@ -15,33 +15,11 @@ logger = logging.getLogger('review_tasks.tasks')
 
 load_dotenv()
 jwt_reviews = os.getenv('jwt_reviews')
-jwt_for_resp_and_get_cab1 = os.getenv('jwt_for_resp_and_get_cab1')
-jwt_for_resp_and_get_cab2 = os.getenv('jwt_for_resp_and_get_cab2')
 url_for_reviews = 'https://feedbacks-api.wildberries.ru/api/v1/feedbacks'
-url_for_response = 'https://feedbacks-api.wildberries.ru/api/v1/feedbacks/answer'
 
 headers_reviews = {
         'Authorization':jwt_reviews
     }
-
-with open('reviews/response_list.txt', 'r', encoding='utf-8') as f:
-        response_list = [str(resp.strip().strip('"')) for resp in f.readlines()]
-
-params_reviews = {
-        "isAnswered":'false',
-        "take":5000,
-        "skip":0
-    }
-
-headers_cab1 = {
-    'Authorization':jwt_for_resp_and_get_cab1
-}
-
-headers_cab2 = {
-    'Authorization':jwt_for_resp_and_get_cab2
-}
-
-headers_list = [headers_cab1, headers_cab2]
 
 @shared_task
 def fetch_reviews():
@@ -80,31 +58,3 @@ def fetch_reviews():
 def deleter_reviews():
     cutoff_date = timezone.now() - datetime.timedelta(days=730)
     Review.objects.filter(date__lt=cutoff_date).delete()
-
-# @shared_task
-def response_to_reviews():
-
-    for headers in headers_list:
-
-        response = requests.get(url_for_reviews, headers=headers, params=params_reviews)
-        reviews_data = response.json()
-
-        ids = []
-
-        for review in reviews_data['data']['feedbacks']:
-            if review['productValuation'] in (4, 5):
-                review_id = review['id']
-                ids.append(review_id)
-
-        logger.info(ids)
-
-        for review_id in ids:
-            params_response = {
-                "id": review_id,
-                "text": response_list[randint(0,38)]
-            }
-            logger.info(params_response['text'])
-            requests.post(url_for_response, headers=headers, json=params_response)
-
-if __name__ == "__main__":
-    response_to_reviews()

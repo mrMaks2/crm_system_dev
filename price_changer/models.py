@@ -3,6 +3,8 @@ from django.db import models
 class Product_from_wb(models.Model):
     prod_art_from_wb = models.CharField(max_length=255, unique=True, verbose_name='Артикул товара с WB')
     price_with_discount_wb = models.IntegerField(null=True, blank=True, verbose_name='Цена с учетом скидки от кошелька')
+    wb_old_price = models.IntegerField(null=True, blank=True, verbose_name='Старая цена до скидок')
+    new_price_for_wb = models.IntegerField(null=True, blank=True, verbose_name='Новая цена до скидок')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

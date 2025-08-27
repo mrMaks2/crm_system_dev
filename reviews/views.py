@@ -7,7 +7,8 @@ import logging
 import datetime
 # from sentence_transformers import SentenceTransformer
 
-# docker-compose up --build
+# docker-compose up --build - запуск Docker образа
+# docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' <имя_контейнера> - метод определения IP Docker контейнера
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('review_views')

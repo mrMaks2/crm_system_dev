@@ -16,7 +16,6 @@ services:
     depends_on:
       - db
       - redis
-      # - selenium
     command: python manage.py runserver 0.0.0.0:8000
 
   worker:
@@ -46,29 +45,17 @@ services:
   db:
     container_name: postgres
     image: postgres:15-alpine
+    env_file:
+      - .env
     environment:
-      - POSTGRES_DB=crm_project
-      - POSTGRES_USER=maks
-      - POSTGRES_PASSWORD=maks
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # selenium:
-  #   image: selenium/standalone-chromium:latest
-  #   container_name: selenium-container
-  #   restart: unless-stopped
-  #   shm_size: 2g
-  #   ports:
-  #     - "4444:4444"  # Selenium WebDriver API
-  #     - "7900:7900"  # VNC Viewer
-  #   environment:
-  #     - SE_NODE_MAX_SESSIONS=1
-  #     - SE_NODE_OVERRIDE_MAX_SESSIONS=true
-  #     - SE_NODE_SESSION_TIMEOUT=300
-  #     - SE_NODE_GRID_URL=http://selenium:4444/wd/hub
-  #     - SE_NODE_DETECT_DRIVERS=false
 
 volumes:
   postgres_data: {}
