@@ -24,9 +24,7 @@ def registration_view(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
-            new_user = form.save(commit=False)
-            new_user.set_password(form.cleaned_data['password'])
-            new_user.save()
+            new_user = form.save()
             return render(request, 'accounts/register_done.html', {'new_user': new_user})
         return render(request, 'accounts/register.html', {'form': form})
     else:

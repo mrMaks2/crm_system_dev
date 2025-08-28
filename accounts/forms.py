@@ -17,6 +17,7 @@ class UserLoginForm(forms.Form):
                                    'placeholder': 'Введите пароль'
     }))
 
+    # forms.py - обновите clean метод в UserLoginForm
     def clean(self, *args, **kwargs):
         username = self.cleaned_data.get('username')
         password = self.cleaned_data.get('password')
@@ -24,8 +25,14 @@ class UserLoginForm(forms.Form):
             qs = User.objects.filter(username=username)
             if not qs.exists():
                 raise forms.ValidationError('Такого пользователя не существует')
-            if not check_password(password, qs[0].password):
+            
+            user = qs.first()
+            if not user.is_active:
+                raise forms.ValidationError('Ваш аккаунт не активирован. Обратитесь к администратору.')
+            
+            if not check_password(password, user.password):
                 raise forms.ValidationError('Неверный пароль')
+                
             user = authenticate(username=username, password=password)
             if not user:
                 raise forms.ValidationError('Данный пользователь не активен')
@@ -57,3 +64,11 @@ class UserRegistrationForm(forms.ModelForm):
         if data['password'] != data['password2']:
             raise forms.ValidationError('Пароли не совпадают')
         return data['password2']
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        user.is_active = False
+        if commit:
+            user.save()
+        return user
