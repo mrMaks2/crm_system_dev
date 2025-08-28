@@ -2,12 +2,12 @@
 {% block title %}Форма входа{% endblock %}
 {% block content %}
 
-    <div class="row justify-content-center">
-        <div class="col-auto text-center">
+    <div class="vh-100 d-flex justify-content-center align-items-center m-0">
+        <div class="text-center">
             <h1>Форма входа</h1>
+
+            {% include 'form.html' with button='Войти' %}
         </div>
     </div>
     
-{% include 'form.html' with button='Войти' %}
-
 {% endblock %}

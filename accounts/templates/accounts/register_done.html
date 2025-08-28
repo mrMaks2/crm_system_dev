@@ -1,11 +1,13 @@
 {% extends 'base.html' %}
 {% block title %}Форма регистрации{% endblock %}
 {% block content %}
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6 text-center">
+
+    <div class="vh-100 d-flex justify-content-center align-items-center m-0">
+        <div class="col-auto text-center">
             <h1>Приветствуем Вас, {{ new_user.username }}!</h1>
             <p>Вы успешно зарегистрировались в системе. Ваш аккаунт ожидает активации администратором.</p>
-            <p>После активации вы сможете <a href="{% url 'login' %}">войти</a> в систему.</p>
+            <p>После активации вы сможете <a href="{% url 'accounts:login' %}">войти</a> в систему.</p>
         </div>
     </div>
+    
 {% endblock %}

@@ -92,6 +92,8 @@ body {
     background: linear-gradient(135deg, #f4f6ff 0%, #c0d6ff 100%);
     min-height: 100vh;
     padding-bottom: 2rem;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Адаптивность для мобильных устройств */
