@@ -6,15 +6,15 @@ from django.core.exceptions import ValidationError
 User = get_user_model()
 
 class UserLoginForm(forms.Form):
-    username = forms.CharField(label='username',
+    username = forms.CharField(label='Логин',
                                widget=forms.TextInput(attrs={
                                    'class': 'form-control',
-                                   'placeholder': 'Введите username'
+                                   'placeholder': 'Введите логин'
     }))
-    password = forms.CharField(label='password',
+    password = forms.CharField(label='Пароль',
                                widget=forms.PasswordInput(attrs={
                                    'class': 'form-control',
-                                   'placeholder': 'Введите password'
+                                   'placeholder': 'Введите пароль'
     }))
 
     def clean(self, *args, **kwargs):
@@ -32,20 +32,20 @@ class UserLoginForm(forms.Form):
         return super().clean(*args, **kwargs)
 
 class UserRegistrationForm(forms.ModelForm):
-    username = forms.CharField(label='username',
+    username = forms.CharField(label='Логин',
                                widget=forms.TextInput(attrs={
                                    'class': 'form-control',
-                                   'placeholder': 'Введите username'
+                                   'placeholder': 'Введите логин'
     }))
-    password = forms.CharField(label='password',
+    password = forms.CharField(label='Пароль',
                                widget=forms.PasswordInput(attrs={
                                    'class': 'form-control',
-                                   'placeholder': 'Введите password'
+                                   'placeholder': 'Введите пароль'
     }))
-    password2 = forms.CharField(label='password',
+    password2 = forms.CharField(label='Повторный пароль',
                                widget=forms.PasswordInput(attrs={
                                    'class': 'form-control',
-                                   'placeholder': 'Повторно введите password'
+                                   'placeholder': 'Повторно введите пароль'
     }))
 
     class Meta:

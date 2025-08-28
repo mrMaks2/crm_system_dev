@@ -1,145 +1,115 @@
 {% extends 'base.html' %}
 {% block title %}Страница проверки отзыва{% endblock %}
 {% block content %}
-{% comment %}
-<div class="row">
-    <div class="col-md-12 my-2">
-        <form method="post" action="">
-            {% csrf_token %}
-            <h6>Введите данные для проверки</h6>
-            <div class="form-group">
-                <input class="form-control" type="text" name="review_example" placeholder="Введите пример отзыва для проверки" required>
-            </div>
-            <div class="form-group">
-                <input class="form-control" type="text" name="article" placeholder="Введите артикул товара, с отзывами которого необходимо сравнить" required>
-            </div>
-                <button type="submit" class="btn btn-primary">Проверить</button>
-        </form>
-    </div>
-</div>
-<div class="container">
-    {% if not similarities %}
-        <div class="mx-auto">
-            <h4 class="text-info">Ждем заполнения полей для проверки.</h4>
-        </div>
-    {% else %}
-        {% if similarities.0 == -1 %}
-            <div class="mx-auto">
-                <h2 class="text-success">Отзыв уникальный! Можно постить!</h2>
-            </div>
-        {% else %}
-            <h1>Список совпадений</h1>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Идентичность, %</th>
-                        <th>Текст отзыва</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for similarity in similarities %}
-                        <tr>
-                            <td>{{ similarity.0|floatformat:2 }}%</td>
-                            <td>{{ similarity.1 }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
-    {% endif %}
-</div>
-{% endblock %} {% endcomment %}
-
-<div class="row">
-    <div class="col-md-12 my-2">
-        <form method="post" action="" id="reviews-form">
-            {% csrf_token %}
-            <h6>Введите данные для проверки</h6>
-            
-            <div class="form-group">
-                <label for="article">Артикул товара:</label>
-                <input class="form-control" type="text" name="article" id="article" 
-                       placeholder="Введите артикул товара, с отзывами которого необходимо сравнить" required>
-            </div>
-            
-            <div id="reviews-container">
-                {% for field in form %}
-                    {% if 'review_example_' in field.name %}
-                    <div class="form-group review-field">
-                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        <div class="input-group">
-                            {{ field }}
-                            <div class="input-group-append">
-                                <button type="button" class="btn btn-danger remove-review" {% if forloop.first %}disabled{% endif %}>
-                                    <i class="fa fa-minus"></i>
-                                </button>
+{% if user.is_authenticated %}
+    <div class="row">
+        <div class="col-md-12 my-2">
+            <form method="post" action="" id="reviews-form">
+                {% csrf_token %}
+                <h4>Введите данные для проверки</h4>
+                
+                <div class="form-group">
+                    <label for="article">Артикул товара:</label>
+                    <input class="form-control" type="text" name="article" id="article" 
+                        placeholder="Введите артикул товара, с отзывами которого необходимо сравнить" required>
+                </div>
+                
+                <div id="reviews-container">
+                    {% for field in form %}
+                        {% if 'review_example_' in field.name %}
+                        <div class="form-group review-field">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            <div class="input-group">
+                                {{ field }}
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-danger remove-review" {% if forloop.first %}disabled{% endif %}>
+                                        <i class="fa fa-minus"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-            
-            <div>
-                <button type="button" id="add-review" class="btn btn-success mb-3">
-                    <i class="fa fa-plus"></i> Добавить отзыв
-                </button>
-            </div>
-            
-            <button type="submit" class="btn btn-primary">Проверить</button>
-        </form>
-    </div>
-</div>
-
-<div class="container">
-    {% if not results %}
-        <div class="mx-auto">
-            <h4 class="text-info">Ждем заполнения полей для проверки.</h4>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                
+                <div>
+                    <button type="button" id="add-review" class="btn btn-success mb-3">
+                        <i class="fa fa-plus"></i> Добавить строку
+                    </button>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Проверить</button>
+            </form>
         </div>
-    {% else %}
-        {% for result in results %}
-            <div class="mb-4">
-                <h3 class="text-primary">Проверка отзыва: "{{ result.review }}"</h3>
-                {% if result.is_unique %}
-                    <div class="alert alert-success">
-                        <h4 class="text-success">Отзыв уникальный! Можно постить!</h4>
-                    </div>
-                {% else %}
-                    <h5>Список совпадений:</h5>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Идентичность</th>
-                                <th>Текст отзыва</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for similarity in result.similarities %}
-                                <tr>
-                                    <td>{{ similarity.0|floatformat:2 }}%</td>
-                                    <td>{{ similarity.1 }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% endif %}
-            </div>
-        {% endfor %}
-    {% endif %}
-</div>
+    </div>
 
+    <div class="container">
+        {% if not results %}
+            <div class="row justify-content-center">
+                <div class="col-auto text-center">
+                    <div class="mx-auto">
+                        <h4 class="text-info">Ждем заполнения полей для проверки.</h4>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            {% for result in results %}
+                <div class="mb-4">
+                    <h3 class="text-primary">Проверка отзыва: "{{ result.review }}"</h3>
+                    {% if result.is_unique %}
+                        <div class="alert alert-success">
+                            <div class="row justify-content-center">
+                                <div class="col-auto text-center">
+                                    <h4 class="text-success">Отзыв уникальный! Можно постить!</h4>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <h5>Список совпадений:</h5>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Идентичность</th>
+                                    <th>Текст отзыва</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for similarity in result.similarities %}
+                                    <tr>
+                                        <td>{{ similarity.0|floatformat:2 }}%</td>
+                                        <td>{{ similarity.1 }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+{% else %}
+    <div class="row container-fluid vh-100 d-flex justify-content-center align-items-center">
+        <div class="col-md-10 col-lg-8 text-center">
+            <h4>Дорогой друг, пожалуйста, <a href="{% url 'accounts:login' %}">авторизуйся</a>!</h4>
+            <p>Без авторизации сервисы данного приложения, к сожалению, не будут доступны.</p>
+        </div>
+    </div>
+{% endif %}
 <script>
 $(document).ready(function() {
+    
+    // Получаем начальное количество полей
     let reviewCount = {{ form.field_count|default:1 }};
     
     // Добавление нового поля отзыва
     $('#add-review').click(function() {
+        
         const newField = `
         <div class="form-group review-field">
-            <label for="review_example_${reviewCount}">Отзыв #${reviewCount + 1}</label>
+            <label>Отзыв №${reviewCount + 1}</label>
             <div class="input-group">
                 <input type="text" name="review_example_${reviewCount}" class="form-control" 
-                       placeholder="Введите текст отзыва для проверки" id="id_review_example_${reviewCount}">
+                    placeholder="Введите текст отзыва для проверки" id="id_review_example_${reviewCount}">
                 <div class="input-group-append">
                     <button type="button" class="btn btn-danger remove-review">
                         <i class="fa fa-minus"></i>
@@ -150,17 +120,58 @@ $(document).ready(function() {
         
         $('#reviews-container').append(newField);
         reviewCount++;
+        
+        // Активируем кнопки удаления, если есть больше одного поля
+        if ($('.review-field').length > 1) {
+            $('.remove-review').prop('disabled', false);
+        }
     });
     
     // Удаление поля отзыва
     $(document).on('click', '.remove-review', function() {
         if ($('.review-field').length > 1) {
             $(this).closest('.review-field').remove();
-            // Обновляем нумерацию оставшихся полей
-            $('.review-field').each(function(index) {
-                $(this).find('label').text(`Отзыв #${index + 1}`);
-            });
+            
+            // Уменьшаем счетчик, так как мы удалили одно поле
+            reviewCount--;
+            
+            // Обновляем нумерацию всех оставшихся полей
+            updateReviewNumbers();
+            
+            // Если осталось только одно поле, отключаем кнопку удаления
+            if ($('.review-field').length === 1) {
+                $('.remove-review').prop('disabled', true);
+            }
         }
+    });
+    
+    // Функция для обновления нумерации полей
+    function updateReviewNumbers() {
+        
+        // Перебираем все поля и обновляем их номера
+        $('.review-field').each(function(index) {
+            const newNumber = index + 1;
+            
+            // Обновляем label
+            $(this).find('label').text(`Отзыв №${newNumber}`);
+            
+            // Обновляем имя и id поля input
+            const input = $(this).find('input');
+            input.attr('name', `review_example_${index}`);
+            input.attr('id', `id_review_example_${index}`);
+
+        });
+
+    }
+    
+    // Инициализация: отключаем кнопки удаления если только одно поле
+    if ($('.review-field').length === 1) {
+        $('.remove-review').prop('disabled', true);
+    }
+    
+    // Сохраняем первоначальные индексы полей для отладки
+    $('.review-field').each(function(index) {
+        $(this).find('input').data('old-index', index);
     });
 });
 </script>

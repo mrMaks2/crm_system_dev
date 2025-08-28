@@ -49,7 +49,7 @@ class ReviewsCheckingForm(forms.Form):
         
         for i in range(extra_fields):
             self.fields[f'review_example_{i}'] = forms.CharField(
-                label=f'Отзыв #{i+1}',
+                label=f'Отзыв №{i+1}',
                 widget=forms.TextInput(attrs={
                     'class': 'form-control',
                     'placeholder': 'Введите текст отзыва для проверки'

@@ -1,8 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Форма регистрации{% endblock %}
 {% block content %}
-<h1>Приветствуем Вас, {{ new_user.username }}!</h1>
-
-<p>Вы успешно зарегистрировались в системе. Теперь вы можете <a href="{% url 'accounts:login' %}">войти</a>.</p>
-
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6 text-center">
+            <h1>Приветствуем Вас, {{ new_user.username }}!</h1>
+            <p>Вы успешно зарегистрировались в системе. Теперь вы можете <a href="{% url 'accounts:login' %}">войти</a>.</p>
+        </div>
+    </div>
 {% endblock %}
