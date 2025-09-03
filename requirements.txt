@@ -5,4 +5,5 @@ python-dotenv
 redis
 django-celery-beat
 psycopg2-binary
+pandas
 # sentence-transformers

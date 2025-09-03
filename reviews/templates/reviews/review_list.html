@@ -95,8 +95,7 @@
             </form>
         </div>
     </div>
-
-    <div class="container">
+    <div class="table-responsive">
         <h1>Список отзывов</h1>
         <table class="table table-hover">
             <thead class="my-custom-header">
@@ -122,51 +121,50 @@
                 {% endfor %}
             </tbody>
         </table>
-
-        <nav aria-label="Page navigation">
-            <ul class="pagination justify-content-center">
-                {% if reviews.has_previous %}
-                <li class="page-item">
-                    <a class="page-link" href="?page=1{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Первая">
-                    <span aria-hidden="true">&laquo; Первая</span>
-                    </a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ reviews.previous_page_number }}{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Назад">
-                    <span aria-hidden="true">&lsaquo; Назад</span>
-                    </a>
-                </li>
-                {% endif %}
-
-                {% page_range reviews.paginator reviews.number as page_range %}
-                {% for num in page_range %}
-                {% if reviews.number == num %}
-                    <li class="page-item active" aria-current="page">
-                    <a class="page-link" href="#">{{ num }}</a>
-                    </li>
-                {% else %}
-                    <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}">{{ num }}</a>
-                    </li>
-                {% endif %}
-                {% endfor %}
-
-                {% if reviews.has_next %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ reviews.next_page_number }}{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Вперед">
-                    <span aria-hidden="true">Вперед &raquo;</span>
-                    </a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ reviews.paginator.num_pages }}{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Последняя">
-                    <span aria-hidden="true">Последняя ({{ reviews.paginator.num_pages }})</span>
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
-
     </div>
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if reviews.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Первая">
+                <span aria-hidden="true">&laquo; Первая</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ reviews.previous_page_number }}{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Назад">
+                <span aria-hidden="true">&lsaquo; Назад</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% page_range reviews.paginator reviews.number as page_range %}
+            {% for num in page_range %}
+            {% if reviews.number == num %}
+                <li class="page-item active" aria-current="page">
+                <a class="page-link" href="#">{{ num }}</a>
+                </li>
+            {% else %}
+                <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}">{{ num }}</a>
+                </li>
+            {% endif %}
+            {% endfor %}
+
+            {% if reviews.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ reviews.next_page_number }}{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Вперед">
+                <span aria-hidden="true">Вперед &raquo;</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ reviews.paginator.num_pages }}{% for key, value in params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Последняя">
+                <span aria-hidden="true">Последняя ({{ reviews.paginator.num_pages }})</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+
 {% else %}
     <div class="row container-fluid vh-100 d-flex justify-content-center align-items-center">
         <div class="col-md-10 col-lg-8 text-center">

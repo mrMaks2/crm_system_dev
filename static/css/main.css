@@ -38,9 +38,11 @@
     transform: translateY(-2px);
 }
 
-.navbar-nav .nav-item.active .nav-link {
-    background-color: rgba(255, 255, 255, 0.3);
+nav.navbar .navbar-nav > li.nav-item.active > a.nav-link#brand {
+    background-color: rgb(207, 230, 255) !important;
+    color: rgb(0, 0, 0) !important;
     font-weight: bold;
+    box-shadow: 0 2px 8px rgb(207, 230, 255);
 }
 
 /* Стили для всей таблицы */
@@ -52,13 +54,13 @@
 }
 
 /* Стили для заголовка таблицы */
-.my-custom-header th {
+/* .my-custom-header th {
     background-color: #e3f2fd;
     border: none;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: relative;
     z-index: 1;
-}
+} */
 
 .my-custom-header th:first-child {
     border-top-left-radius: 15px;
@@ -108,5 +110,37 @@ body {
     
     .navbar-collapse {
         padding: 1rem 0;
+    }
+}
+
+/* Фиксированный заголовок таблицы при прокрутке страницы */
+.table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+/* Усиливаем стили для фиксированного заголовка */
+.my-custom-header th {
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+    background-color: #e3f2fd;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Увеличиваем z-index для навбара, чтобы он был выше заголовка таблицы */
+.navbar {
+    z-index: 1010;
+}
+
+/* Для мобильных устройств - уменьшаем top offset */
+@media (max-width: 768px) {
+    .table thead {
+        top: 0;
+    }
+    
+    .my-custom-header th {
+        top: 0;
     }
 }

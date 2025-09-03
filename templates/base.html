@@ -1,6 +1,7 @@
 {% load static %}
 {% url 'reviews:review_list' as review_list_url %}
 {% url 'reviews:check' as reviews_check_url %}
+{% url 'advertisings:campaign_analysis' as campaign_analysis_url %}
 
 <!doctype html>
 <html lang="en">
@@ -48,8 +49,8 @@
             <li class="nav-item mx-1 {% if request.path == reviews_check_url %} active {% endif %}">
               <a class="nav-link" href="{% url 'reviews:check' %}" id="brand">Проверка отзыва</a>
             </li>
-            <li class="mx-1">
-              <a class="nav-link" href="#" id="brand">Задача2</a>
+            <li class="nav-item mx-1 {% if request.path == campaign_analysis_url %} active {% endif %}">
+              <a class="nav-link" href="{% url 'advertisings:campaign_analysis' %}" id="brand">Статистика по кампаниям</a>
             </li>
             <li class="nav-item mx-1">
               <a class="nav-link" href="{% url 'accounts:logout' %}" id="brand">Выйти</a>
@@ -129,12 +130,35 @@
             sideBySide: true
         });
 
+        $('#datetimepicker3').datetimepicker({
+            format: 'YYYY-MM-DD',
+            locale: 'ru',
+            useCurrent: false,
+            stepping: 5,
+            sideBySide: true
+        });
+        
+        $('#datetimepicker4').datetimepicker({
+            format: 'YYYY-MM-DD',
+            locale: 'ru',
+            useCurrent: false,
+            stepping: 5,
+            sideBySide: true
+        });
+
         // Связывание datetimepicker'ов
         $("#datetimepicker1").on("change.datetimepicker", function (e) {
             $('#datetimepicker2').datetimepicker('minDate', e.date);
         });
         $("#datetimepicker2").on("change.datetimepicker", function (e) {
             $('#datetimepicker1').datetimepicker('maxDate', e.date);
+        });
+
+        $("#datetimepicker3").on("change.datetimepicker", function (e) {
+            $('#datetimepicker4').datetimepicker('minDate', e.date);
+        });
+        $("#datetimepicker4").on("change.datetimepicker", function (e) {
+            $('#datetimepicker3').datetimepicker('maxDate', e.date);
         });
 
         // Инициализация Select2
