@@ -46,7 +46,7 @@ def review_list(request):
     form1 = ReviewForm(initial={'my_dropdown': sort_option} if sort_option else {})
     form2 = DateForm(initial={'date_start': date_start, 'date_end': date_end} if date_start and date_end else {})
 
-    paginator = Paginator(reviews, 20)
+    paginator = Paginator(reviews, 50)
     page_number = request.GET.get('page')
     reviews_page = paginator.get_page(page_number)
 

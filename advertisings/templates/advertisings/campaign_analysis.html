@@ -3,102 +3,122 @@
 {% block content %}
 {% if user.is_authenticated %}
     {% load custom_filters %}
-    <form method="post" action="">
-        {% csrf_token %}
-        <div class="row">
-            <div class="col-md-12 my-2">
-                <h6>Введите артикул товара</h6>
-                <div class="form-group">
-                    {{ form.article }}
-                </div>
-            </div>
-        </div>
-        <!-- Форма фильтрации по дате -->
-        <div class="row">
-            <div class="col-md-12 my-2">
-                <h6>Выберите диапозон дат для фильтрации отзывов</h6>
-                <div class="form-group">
-                    <div class="input-group date my-1" id="datetimepicker3" data-target-input="nearest">
-                        {{ form.date_start }}
-                        <div class="input-group-append" data-target="#datetimepicker3" data-toggle="datetimepicker">
-                            <div class="input-group-text"><i class="fa fa-calendar"></i></div>
-                        </div>
-                    </div>
-                    <div class="input-group date my-1" id="datetimepicker4" data-target-input="nearest">
-                        {{ form.date_end }}
-                        <div class="input-group-append" data-target="#datetimepicker4" data-toggle="datetimepicker">
-                            <div class="input-group-text"><i class="fa fa-calendar"></i></div>
-                        </div>
+    {% load humanize %}
+    <div class="container">  <!-- Форма остается в контейнере -->
+        <form method="post" action="">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Введите артикул товара</h6>
+                    <div class="form-group">
+                        {{ form.article }}
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary">Показать статистику</button>
             </div>
-        </div>
-    </form>
-
-    {% if error %}
-        <div class="alert alert-danger mt-3">{{ error }}</div>
-    {% endif %}
-
-        {% if total_interval %}
-        <div class="table-responsive">
-            <div style="text-align: center;">
-                <h3>Статистика рекламы для {{art_prod}} за период: {{ total_interval }}</h3>
+            <!-- Форма фильтрации по дате -->
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Выберите диапозон дат для фильтрации отзывов</h6>
+                    <div class="form-group">
+                        <div class="input-group date my-1" id="datetimepicker3" data-target-input="nearest">
+                            {{ form.date_start }}
+                            <div class="input-group-append" data-target="#datetimepicker3" data-toggle="datetimepicker">
+                                <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                            </div>
+                        </div>
+                        <div class="input-group date my-1" id="datetimepicker4" data-target-input="nearest">
+                            {{ form.date_end }}
+                            <div class="input-group-append" data-target="#datetimepicker4" data-toggle="datetimepicker">
+                                <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Показать статистику</button>
+                </div>
             </div>
-            <table class="table table-hover">
+        </form>
+
+        {% if error %}
+            <div class="alert alert-danger mt-3">{{ error }}</div>
+        {% endif %}
+    </div>
+
+    {% if total_interval %}
+    <!-- Таблица выходит за пределы контейнера -->
+    <div style="width: 100vw; margin-left: calc(-50vw + 50%);">
+        <div class="table-responsive" style="font-size: 11px;">
+            <div style="text-align: center; padding: 10px 0;">
+                <h4>Статистика рекламы для {{art_prod}} за период: {{ total_interval }}</h4>
+            </div>
+            <table class="table table-hover" style="width: 90%; margin: 0 auto; table-layout: auto;">
                 <thead class="my-custom-header">
                     <tr>
-                        <th>Дата</th>
-                        <th>Тип</th>
-                        <th>Просмотры</th>
-                        <th>Клики</th>
-                        <th>CTR</th>
-                        <th>CPC</th>
-                        <th>CPO</th>
-                        <th>Сумма</th>
-                        <th>Заказы</th>
-                        <th>CR</th>
-                        <th>Сумма заказов</th>
+                        <th style="min-width: 80px;">Дата</th>
+                        <th style="min-width: 60px;">Тип</th>
+                        <th style="min-width: 60px;">Просмотры</th>
+                        <th style="min-width: 50px;">Клики</th>
+                        <th style="min-width: 50px;">CTR</th>
+                        <th style="min-width: 50px;">CPC</th>
+                        <th style="min-width: 50px;">CPO</th>
+                        <th style="min-width: 60px;">Затраты</th>
+                        <th style="min-width: 50px;">Заказы</th>
+                        <th style="min-width: 50px;">CR</th>
+                        <th style="min-width: 70px;">Сумма заказов в РК</th>
+                        <!-- Новые столбцы -->
+                        <th style="min-width: 50px;">Переходы</th>
+                        <th style="min-width: 50px;">Корзина</th>
+                        <th style="min-width: 50px;">CR1</th>
+                        <th style="min-width: 50px;">Заказы</th>
+                        <th style="min-width: 50px;">CR2</th>
+                        <th style="min-width: 70px;">Сумма заказов Воронка</th>
+                        <th style="min-width: 50px;">ДРРз</th>
                     </tr>
                 </thead>
                 <tbody>
                     <!-- Строка "За весь интервал" -->
                     <tr class="table-info">
-                        <td style="font-weight: 550; vertical-align: middle;" rowspan="3">За весь<br>интервал</td>
-                        <td style="font-weight: 550;">Всего</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.views|default:0 }}</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.clicks|default:0 }}</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.ctr|default:0 }} %</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.cpc|default:0 }} ₽</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.cpo|default:0 }} ₽</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.sum|default:0 }} ₽</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.orders|default:0 }}</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.cr|default:0 }} %</td>
-                        <td style="font-weight: 550;">{{ stats_data.totals.all.sum_price|default:0 }}</td>
+                        <td style="font-weight: bold; vertical-align: middle; min-width: 80px;" rowspan="3">За весь<br>интервал</td>
+                        <td style="font-weight: bold; min-width: 60px;">Всего</td>
+                        <td style="font-weight: bold; min-width: 60px;">{{ stats_data.totals.all.views|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.clicks|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.ctr|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.cpc|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.cpo|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 60px;">{{ stats_data.totals.all.sum|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.orders|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.cr|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 70px;">{{ stats_data.totals.all.sum_price|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.openCardCount|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.addToCartCount|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.cr1|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.ordersCount|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.cr2|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 70px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.ordersSumRub|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.drrz|default:0 }} %</td>
                     </tr>
                     <tr class="table-info">
-                        <td>Поиск</td>
-                        <td>{{ stats_data.totals.search.views|default:0 }}</td>
-                        <td>{{ stats_data.totals.search.clicks|default:0 }}</td>
-                        <td>{{ stats_data.totals.search.ctr|default:0 }} %</td>
-                        <td>{{ stats_data.totals.search.cpc|default:0 }} ₽</td>
-                        <td>{{ stats_data.totals.search.cpo|default:0 }} ₽</td>
-                        <td>{{ stats_data.totals.search.sum|default:0 }} ₽</td>
-                        <td>{{ stats_data.totals.search.orders|default:0 }}</td>
-                        <td>{{ stats_data.totals.search.cr|default:0 }} %</td>
-                        <td>{{ stats_data.totals.search.sum_price|default:0 }}</td>
+                        <td style="min-width: 60px;">Поиск</td>
+                        <td style="min-width: 60px;">{{ stats_data.totals.search.views|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.search.clicks|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.search.ctr|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.search.cpc|default:0 }} ₽</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.search.cpo|default:0 }} ₽</td>
+                        <td style="min-width: 60px;">{{ stats_data.totals.search.sum|default:0 }} ₽</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.search.orders|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.search.cr|default:0 }} %</td>
+                        <td style="min-width: 70px;">{{ stats_data.totals.search.sum_price|default:0 }} ₽</td>
                     </tr>
                     <tr class="table-info">
-                        <td>Полка</td>
-                        <td>{{ stats_data.totals.rack.views|default:0 }}</td>
-                        <td>{{ stats_data.totals.rack.clicks|default:0 }}</td>
-                        <td>{{ stats_data.totals.rack.ctr|default:0 }} %</td>
-                        <td>{{ stats_data.totals.rack.cpc|default:0 }} ₽</td>
-                        <td>{{ stats_data.totals.rack.cpo|default:0 }} ₽</td>
-                        <td>{{ stats_data.totals.rack.sum|default:0 }} ₽</td>
-                        <td>{{ stats_data.totals.rack.orders|default:0 }}</td>
-                        <td>{{ stats_data.totals.rack.cr|default:0 }} %</td>
-                        <td>{{ stats_data.totals.rack.sum_price|default:0 }}</td>
+                        <td style="min-width: 60px;">Полка</td>
+                        <td style="min-width: 60px;">{{ stats_data.totals.rack.views|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.rack.clicks|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.rack.ctr|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.rack.cpc|default:0 }} ₽</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.rack.cpo|default:0 }} ₽</td>
+                        <td style="min-width: 60px;">{{ stats_data.totals.rack.sum|default:0 }} ₽</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.rack.orders|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.rack.cr|default:0 }} %</td>
+                        <td style="min-width: 70px;">{{ stats_data.totals.rack.sum_price|default:0 }} ₽</td>
                     </tr>
                     
                     <!-- Данные по дням -->
@@ -106,41 +126,48 @@
                     {% with day_stats=stats_data.daily_stats|get_item:date %}
                     {% with day_name=stats_data.dates_data|get_item:date|get_item:'day_name' %}
                     <tr>
-                        <td style="font-weight: 550; vertical-align: middle;" rowspan="3">{{ date }}<br><small>{{ day_name }}</small></td>
-                        <td style="font-weight: 550;">Всего</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.views|default:0 }}</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.clicks|default:0 }}</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.ctr|default:0 }} %</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.cpc|default:0 }} ₽</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.cpo|default:0 }} ₽</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.sum|default:0 }} ₽</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.orders|default:0 }}</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.cr|default:0 }} %</td>
-                        <td style="font-weight: 550;">{{ day_stats.all.sum_price|default:0 }}</td>
+                        <td style="font-weight: bold; vertical-align: middle; min-width: 80px;" rowspan="3">{{ date|format_date_string }}<br><small>{{ day_name }}</small></td>
+                        <td style="font-weight: bold; min-width: 60px;">Всего</td>
+                        <td style="font-weight: bold; min-width: 60px;">{{ day_stats.all.views|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.clicks|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.ctr|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.cpc|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.cpo|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 60px;">{{ day_stats.all.sum|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.orders|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.cr|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 70px;">{{ day_stats.all.sum_price|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.openCardCount|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.addToCartCount|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.cr1|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.ordersCount|default:0 }}</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.cr2|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 70px; vertical-align: top;" rowspan="3">{{ day_stats.all.ordersSumRub|default:0 }} ₽</td>
+                        <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.drrz|default:0 }} %</td>
                     </tr>
                     <tr>
-                        <td>Поиск</td>
-                        <td>{{ day_stats.search.views|default:0 }}</td>
-                        <td>{{ day_stats.search.clicks|default:0 }}</td>
-                        <td>{{ day_stats.search.ctr|default:0 }} %</td>
-                        <td>{{ day_stats.search.cpc|default:0 }} ₽</td>
-                        <td>{{ day_stats.search.cpo|default:0 }} ₽</td>
-                        <td>{{ day_stats.search.sum|default:0 }} ₽</td>
-                        <td>{{ day_stats.search.orders|default:0 }}</td>
-                        <td>{{ day_stats.search.cr|default:0 }} %</td>
-                        <td>{{ day_stats.search.sum_price|default:0 }}</td>
+                        <td style="min-width: 60px;">Поиск</td>
+                        <td style="min-width: 60px;">{{ day_stats.search.views|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ day_stats.search.clicks|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ day_stats.search.ctr|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ day_stats.search.cpc|default:0 }} ₽</td>
+                        <td style="min-width: 50px;">{{ day_stats.search.cpo|default:0 }} ₽</td>
+                        <td style="min-width: 60px;">{{ day_stats.search.sum|default:0 }} ₽</td>
+                        <td style="min-width: 50px;">{{ day_stats.search.orders|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ day_stats.search.cr|default:0 }} %</td>
+                        <td style="min-width: 70px;">{{ day_stats.search.sum_price|default:0 }} ₽</td>
                     </tr>
                     <tr>
-                        <td>Полка</td>
-                        <td>{{ day_stats.rack.views|default:0 }}</td>
-                        <td>{{ day_stats.rack.clicks|default:0 }}</td>
-                        <td>{{ day_stats.rack.ctr|default:0 }} %</td>
-                        <td>{{ day_stats.rack.cpc|default:0 }} ₽</td>
-                        <td>{{ day_stats.rack.cpo|default:0 }} ₽</td>
-                        <td>{{ day_stats.rack.sum|default:0 }} ₽</td>
-                        <td>{{ day_stats.rack.orders|default:0 }}</td>
-                        <td>{{ day_stats.rack.cr|default:0 }} %</td>
-                        <td>{{ day_stats.rack.sum_price|default:0 }}</td>
+                        <td style="min-width: 60px;">Полка</td>
+                        <td style="min-width: 60px;">{{ day_stats.rack.views|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ day_stats.rack.clicks|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ day_stats.rack.ctr|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ day_stats.rack.cpc|default:0 }} ₽</td>
+                        <td style="min-width: 50px;">{{ day_stats.rack.cpo|default:0 }} ₽</td>
+                        <td style="min-width: 60px;">{{ day_stats.rack.sum|default:0 }} ₽</td>
+                        <td style="min-width: 50px;">{{ day_stats.rack.orders|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ day_stats.rack.cr|default:0 }} %</td>
+                        <td style="min-width: 70px;">{{ day_stats.rack.sum_price|default:0 }} ₽</td>
                     </tr>
                     {% endwith %}
                     {% endwith %}
@@ -148,9 +175,8 @@
                 </tbody>
             </table>
         </div>
-        {% else %}
-        
-        {% endif %}
+    </div>
+    {% endif %}
 
 {% else %}
     <div class="row container-fluid vh-100 d-flex justify-content-center align-items-center">

@@ -51,6 +51,11 @@ nav.navbar .navbar-nav > li.nav-item.active > a.nav-link#brand {
     border-radius: 15px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-size: 11px;
+    line-height: 1.1;
+    width: 60%;
+    min-width: auto;
+    margin: 0 auto;
 }
 
 /* Стили для заголовка таблицы */
@@ -127,6 +132,9 @@ body {
     z-index: 1001;
     background-color: #e3f2fd;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Увеличиваем z-index для навбара, чтобы он был выше заголовка таблицы */
@@ -143,4 +151,29 @@ body {
     .my-custom-header th {
         top: 0;
     }
+}
+
+.table-responsive {
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    overflow-x: auto;
+}
+
+.table th, .table td {
+    padding: 4px 3px;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word; 
+}
+
+.table th {
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table-info td {
+    background-color: #ddfaff;
 }
