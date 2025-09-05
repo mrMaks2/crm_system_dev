@@ -53,29 +53,27 @@
             <table class="table table-hover" style="width: 90%; margin: 0 auto; table-layout: auto;">
                 <thead class="my-custom-header">
                     <tr>
-                        <th style="min-width: 80px;">Дата</th>
-                        <th style="min-width: 60px;">Тип</th>
-                        <th style="min-width: 60px;">Просмотры</th>
-                        <th style="min-width: 50px;">Клики</th>
-                        <th style="min-width: 50px;">CTR</th>
-                        <th style="min-width: 50px;">CPC</th>
-                        <th style="min-width: 50px;">CPO</th>
-                        <th style="min-width: 60px;">Затраты</th>
-                        <th style="min-width: 50px;">Заказы</th>
-                        <th style="min-width: 50px;">CR</th>
-                        <th style="min-width: 70px;">Сумма заказов в РК</th>
-                        <!-- Новые столбцы -->
-                        <th style="min-width: 50px;">Переходы</th>
-                        <th style="min-width: 50px;">Корзина</th>
-                        <th style="min-width: 50px;">CR1</th>
-                        <th style="min-width: 50px;">Заказы</th>
-                        <th style="min-width: 50px;">CR2</th>
-                        <th style="min-width: 70px;">Сумма заказов Воронка</th>
-                        <th style="min-width: 50px;">ДРРз</th>
+                        <th style="min-width: 80px; height: 30px; vertical-align: middle;">Дата</th>
+                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Тип</th>
+                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Просмотры</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Клики</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CTR</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CPC</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CPO</th>
+                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Затраты</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Заказы</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Сумма заказов в РК</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Переходы</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Корзина</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR1</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Заказы</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR2</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Сумма заказов Воронка</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">ДРРз</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Строка "За весь интервал" -->
                     <tr class="table-info">
                         <td style="font-weight: bold; vertical-align: middle; min-width: 80px;" rowspan="3">За весь<br>интервал</td>
                         <td style="font-weight: bold; min-width: 60px;">Всего</td>
@@ -120,8 +118,6 @@
                         <td style="min-width: 50px;">{{ stats_data.totals.rack.cr|default:0 }} %</td>
                         <td style="min-width: 70px;">{{ stats_data.totals.rack.sum_price|default:0 }} ₽</td>
                     </tr>
-                    
-                    <!-- Данные по дням -->
                     {% for date in stats_data.dates %}
                     {% with day_stats=stats_data.daily_stats|get_item:date %}
                     {% with day_name=stats_data.dates_data|get_item:date|get_item:'day_name' %}

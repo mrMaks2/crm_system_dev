@@ -1,4 +1,3 @@
-from datetime import datetime
 import time
 from django.shortcuts import render
 from django.utils.dateparse import parse_date
@@ -11,6 +10,7 @@ import pandas as pd
 import zipfile
 from io import BytesIO
 import uuid
+from django.core.cache import cache
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('advertisings_views')
@@ -34,7 +34,6 @@ def advertisings_analysis(request):
 
             random_uuid = uuid.uuid4()
             uuid_string = str(random_uuid)
-            url_get_report = f'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads/file/{uuid_string}' # GET
             search_advertIds = []
             rack_advertIds = []
             article_number = form.cleaned_data.get('article', '').strip()
@@ -43,6 +42,22 @@ def advertisings_analysis(request):
 
             date_start_str = date_start.strftime('%Y-%m-%d')
             date_end_str = date_end.strftime('%Y-%m-%d')
+
+            # Генерируем ключ для кеша на основе параметров запроса
+            cache_key = f"report_{date_start_str}_{date_end_str}"
+            
+            # Проверяем, есть ли закешированный отчет
+            cached_report_uuid = cache.get(cache_key)
+            
+            if cached_report_uuid:
+                # Используем закешированный UUID
+                uuid_string = cached_report_uuid
+                logger.info(f"Используем закешированный отчет с UUID: {uuid_string}")
+            else:
+                # Генерируем новый UUID и кешируем запрос
+                random_uuid = uuid.uuid4()
+                uuid_string = str(random_uuid)
+                logger.info(f"Создаем новый отчет с UUID: {uuid_string}")
 
             all_campaigns_response = requests.get(url_all_campaigns, headers=headers_advertisings)
             if all_campaigns_response.status_code != 200:
@@ -101,32 +116,38 @@ def advertisings_analysis(request):
                 })
             
             response = stats_response.json()
-
-            params_for_creaete_report = {
-                    "id": uuid_string,
-                    "reportType": "DETAIL_HISTORY_REPORT",
-                    "userReportName": "Card report",
-                    "params": {
-                        "nmIDs": [int(article_number)],
-                        "startDate": date_start_str,
-                        "endDate": date_end_str,
-                        "timezone": "Europe/Moscow",
-                        "aggregationLevel": "day",
-                        "skipDeletedNm": False
-                        }
-                }
             
-            create_response = requests.post(url_create_report, headers=headers_advertisings, json=params_for_creaete_report)
-            if create_response.status_code != 200:
-                logger.warning(f"Ошибка при создании отчета: {create_response.status_code}")
-                logger.warning(f"Детали ошибки: {create_response.json()['detail']}")
+            if not cached_report_uuid:
 
-            time.sleep(2)
+                params_for_creaete_report = {
+                        "id": uuid_string,
+                        "reportType": "DETAIL_HISTORY_REPORT",
+                        "userReportName": "Card report",
+                        "params": {
+                            "nmIDs": [],
+                            "startDate": date_start_str,
+                            "endDate": date_end_str,
+                            "timezone": "Europe/Moscow",
+                            "aggregationLevel": "day",
+                            "skipDeletedNm": False
+                            }
+                    }
+                
+                create_response = requests.post(url_create_report, headers=headers_advertisings, json=params_for_creaete_report)
+                if create_response.status_code != 200:
+                    logger.warning(f"Ошибка при создании отчета: {create_response.status_code}")
+                    logger.warning(f"Детали ошибки: {create_response.json().get('detail', 'Неизвестная ошибка')}")
+                else:
+                    # Кешируем на 48 часов (столько хранится отчет в базе WB API)
+                    cache.set(cache_key, uuid_string, 48 * 60 * 60)
+                    time.sleep(2)
+                    logger.info(f"Отчет создан и закеширован с ключом: {cache_key}")
 
+            url_get_report = f'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads/file/{uuid_string}' # GET
             response_report = requests.get(url_get_report, headers=headers_advertisings)
             if response_report.status_code != 200:
                 logger.warning(f"Ошибка при получении отчета: {response_report.status_code}")
-                logger.warning(f"Текст ответа: {response_report.text}")
+                logger.warning(f"Детали ошибки: {response_report.json().get('detail', 'Неизвестная ошибка')}")
                 report_json = None
             else:
                 report_json = process_zip_report(response=response_report)

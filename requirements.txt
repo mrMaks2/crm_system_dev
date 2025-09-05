@@ -3,6 +3,7 @@ Django
 requests
 python-dotenv
 redis
+django-redis
 django-celery-beat
 psycopg2-binary
 pandas
