@@ -2,6 +2,7 @@
 {% url 'reviews:review_list' as review_list_url %}
 {% url 'reviews:check' as reviews_check_url %}
 {% url 'advertisings:campaign_analysis' as campaign_analysis_url %}
+{% url 'advertisings:keywords_analysis' as keywords_analysis_url %}
 
 <!doctype html>
 <html lang="en">
@@ -49,8 +50,14 @@
             <li class="nav-item mx-1 {% if request.path == reviews_check_url %} active {% endif %}">
               <a class="nav-link" href="{% url 'reviews:check' %}" id="brand">Проверка отзыва</a>
             </li>
-            <li class="nav-item mx-1 {% if request.path == campaign_analysis_url %} active {% endif %}">
-              <a class="nav-link" href="{% url 'advertisings:campaign_analysis' %}" id="brand">Статистика по кампаниям</a>
+            <li class="nav-item dropdown {% if request.path == campaign_analysis_url or request.path == keywords_analysis_url %} active {% endif %}">
+              <a class="nav-link dropdown-toggle" href="#" id="brand" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Статистика
+              </a>
+              <div class="dropdown-menu" aria-labelledby="brand">
+                <a class="dropdown-item {% if request.path == campaign_analysis_url %} active {% endif %}" href="{% url 'advertisings:campaign_analysis' %}" id="brand">Статистика по кампаниям</a>
+                <a class="dropdown-item {% if request.path == keywords_analysis_url %} active {% endif %}" href="{% url 'advertisings:keywords_analysis' %}" id="brand">Статистика по ключевым фразам</a>
+              </div>
             </li>
             <li class="nav-item mx-1">
               <a class="nav-link" href="{% url 'accounts:logout' %}" id="brand">Выйти</a>

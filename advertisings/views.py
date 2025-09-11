@@ -5,12 +5,13 @@ import requests
 import os
 from dotenv import load_dotenv
 import logging
-from .forms import CampaignAnalysisForm
+from .forms import CampaignAnalysisForm, KeywordsAnalysisForm
 import pandas as pd
 import zipfile
 from io import BytesIO
 import uuid
 from django.core.cache import cache
+from collections import defaultdict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('advertisings_views')
@@ -24,8 +25,10 @@ headers_advertisings = {
 
 url_all_campaigns = 'https://advert-api.wildberries.ru/adv/v1/promotion/count' # GET
 url_info_campaign_nmID = 'https://advert-api.wildberries.ru/adv/v1/promotion/adverts' # POST
-url_info_campaign_stats = 'https://advert-api.wildberries.ru/adv/v2/fullstats' # POST
+url_info_campaign_stats = 'https://advert-api.wildberries.ru/adv/v3/fullstats' # GET
 url_create_report = 'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads' # POST
+url_keywords_stats = 'https://seller-analytics-api.wildberries.ru/api/v2/search-report/product/search-texts' # POST
+url_keywords_stats_2 = 'https://advert-api.wildberries.ru/adv/v0/stats/keywords' # GET
 
 def advertisings_analysis(request):
     if request.method == 'POST':
@@ -68,7 +71,7 @@ def advertisings_analysis(request):
             all_campaigns_list = all_campaigns_response.json().get('adverts', [])
 
             for active_campaign in all_campaigns_list:
-                if active_campaign['status'] == 9:
+                if active_campaign['status'] == 7 or active_campaign['status'] == 9 or active_campaign['status'] == 11:
                     if active_campaign['type'] == 9: # Поисковые кампании
                         for ids in active_campaign['advert_list']:
                             search_advertIds.append(ids['advertId'])
@@ -76,40 +79,45 @@ def advertisings_analysis(request):
                         for ids in active_campaign['advert_list']:
                             rack_advertIds.append(ids['advertId'])
 
-            search_campaign_response = requests.post(url_info_campaign_nmID, headers=headers_advertisings, json=search_advertIds)
-            search_campaign = search_campaign_response.json() if search_campaign_response.status_code == 200 else []
+            search_campaign = []
+            if search_advertIds:
+                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds)
 
-            rack_campaign_response = requests.post(url_info_campaign_nmID, headers=headers_advertisings, json=rack_advertIds)
-            rack_campaign = rack_campaign_response.json() if rack_campaign_response.status_code == 200 else []
+            rack_campaign = []
+            if rack_advertIds:
+                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds)
 
-            search_advertId = None
-            rack_advertId = None
+            # Изменено: search_advertId и rack_advertId теперь списки
+            search_advertId = []
+            rack_advertId = []
 
             for camp in search_campaign:
                 if camp['unitedParams'][0]['nms'][0] == int(article_number):
-                    search_advertId = camp['advertId']
+                    search_advertId.append(camp['advertId'])
             for camp in rack_campaign:
                 if camp['autoParams']['nms'][0] == int(article_number):
-                    rack_advertId = camp['advertId']
-            params = [
-                        {
-                            "id": search_advertId,
-                            "interval": {
-                                "begin" : date_start_str,
-                                "end" : date_end_str
-                                }
-                        },
-                        {
-                            "id": rack_advertId,
-                            "interval": {
-                                "begin" : date_start_str,
-                                "end" : date_end_str
-                                }
-                        }
-                    ]
-            stats_response = requests.post(url_info_campaign_stats, headers=headers_advertisings, json=params)
+                    rack_advertId.append(camp['advertId'])
+
+            id_list = []
+
+            for advert_id in search_advertId:
+                id_list.append(str(advert_id))
+            
+            # Добавляем все кампании на полке
+            for advert_id in rack_advertId:
+                id_list.append(str(advert_id))
+
+            # Создаем параметры для всех найденных кампаний
+            params = {
+                "ids": ','.join(id_list),
+                "beginDate": date_start_str,
+                "endDate": date_end_str
+            }
+            
+            stats_response = requests.get(url_info_campaign_stats, headers=headers_advertisings, params=params)
             
             if stats_response.status_code != 200:
+                logger.warning(f'Ошибка №{stats_response.status_code} при получении статистики: {stats_response.json()}')
                 return render(request, 'advertisings/campaign_analysis.html', {
                     'form': form,
                     'error': f'Ошибка №{stats_response.status_code} при получении статистики'
@@ -173,6 +181,18 @@ def advertisings_analysis(request):
     context = {'form': form}
     return render(request, 'advertisings/campaign_analysis.html', context)
 
+def make_batched_requests(url, advert_ids):
+    results = []
+    # Разбиваем на пакеты по 50 элементов
+    for i in range(0, len(advert_ids), 50):
+        batch = advert_ids[i:i+50]
+        response = requests.post(url, headers=headers_advertisings, json=batch)
+        if response.status_code == 200:
+            results.extend(response.json())
+        else:
+            logger.warning(f"Ошибка при запросе пакета {i//50 + 1}: {response.status_code}")
+    return results
+
 def process_api_data(response, search_advertId, rack_advertId, report_data=None, article_number=None):
     
     # Группируем данные по датам
@@ -190,26 +210,31 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
     
     # Создаем структуру данных для каждой даты
     for date_str in sorted_dates:
+        # Инициализируем advertId для поиска и полки как словари
+        search_adverts = {advert_id: None for advert_id in search_advertId}
+        rack_adverts = {advert_id: None for advert_id in rack_advertId}
+        
         dates_data[date_str] = {
             'date': date_str,
             'day_name': get_day_name(date_str),
             'adverts': {
-                rack_advertId: None,
-                search_advertId: None
+                'search': search_adverts,
+                'rack': rack_adverts
             }
         }
     
     # Заполняем данные для каждого advertId
     for advert in response:
         advert_id = advert['advertId']
+        advert_type = 'search' if advert_id in search_advertId else 'rack'
+        
         for day in advert['days']:
             date_str = day['date'].split('T')[0]
             if date_str in dates_data:
-                dates_data[date_str]['adverts'][advert_id] = day
+                dates_data[date_str]['adverts'][advert_type][advert_id] = day
     
     # Обрабатываем данные из отчета
     report_stats = {}
-    # В process_api_data:
     if report_data and article_number:
         article_num = int(article_number)
         for item in report_data:
@@ -240,36 +265,54 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
     totals = {
         'all': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
                 'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
-                'buyoutsCount': 0, 'buyoutsSumRub': 0},
+                'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0},
         'search': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
                   'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
-                  'buyoutsCount': 0, 'buyoutsSumRub': 0},
+                  'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0},
         'rack': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
                 'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
-                'buyoutsCount': 0, 'buyoutsSumRub': 0}
+                'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0}
     }
     
     for date_str in sorted_dates:
         date_info = dates_data[date_str]
-        advert1_data = date_info['adverts'][rack_advertId] or {}
-        advert2_data = date_info['adverts'][search_advertId] or {}
-        report_data_day = report_stats.get(date_str, {})
         
-        # Данные для полки
-        rack_views = advert1_data.get('views', 0)
-        rack_clicks = advert1_data.get('clicks', 0)
-        rack_sum = advert1_data.get('sum', 0)
-        rack_orders = advert1_data.get('orders', 0)
-        rack_sum_price = advert1_data.get('sum_price', 0)
+        # Суммируем данные по всем поисковым кампаниям
+        search_views = 0
+        search_clicks = 0
+        search_sum = 0
+        search_orders = 0
+        search_sum_price = 0
+        search_atbs = 0
         
-        # Данные для поиска
-        search_views = advert2_data.get('views', 0)
-        search_clicks = advert2_data.get('clicks', 0)
-        search_sum = advert2_data.get('sum', 0)
-        search_orders = advert2_data.get('orders', 0)
-        search_sum_price = advert2_data.get('sum_price', 0)
+        for advert_data in date_info['adverts']['search'].values():
+            if advert_data:
+                search_views += advert_data.get('views', 0)
+                search_clicks += advert_data.get('clicks', 0)
+                search_sum += advert_data.get('sum', 0)
+                search_orders += advert_data.get('orders', 0)
+                search_sum_price += advert_data.get('sum_price', 0)
+                search_atbs += advert_data.get('atbs', 0)
+        
+        # Суммируем данные по всем кампаниям на полке
+        rack_views = 0
+        rack_clicks = 0
+        rack_sum = 0
+        rack_orders = 0
+        rack_sum_price = 0
+        rack_atbs = 0
+        
+        for advert_data in date_info['adverts']['rack'].values():
+            if advert_data:
+                rack_views += advert_data.get('views', 0)
+                rack_clicks += advert_data.get('clicks', 0)
+                rack_sum += advert_data.get('sum', 0)
+                rack_orders += advert_data.get('orders', 0)
+                rack_sum_price += advert_data.get('sum_price', 0)
+                rack_atbs += advert_data.get('atbs', 0)
         
         # Данные из отчета
+        report_data_day = report_stats.get(date_str, {})
         open_card_count = report_data_day.get('openCardCount', 0)
         add_to_cart_count = report_data_day.get('addToCartCount', 0)
         orders_count = report_data_day.get('ordersCount', 0)
@@ -283,6 +326,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
         all_sum = rack_sum + search_sum
         all_orders = rack_orders + search_orders
         all_sum_price = rack_sum_price + search_sum_price
+        all_atbs = rack_atbs + search_atbs
         
         # Рассчитываем метрики за сутки
         rack_ctr = (rack_clicks / rack_views * 100) if rack_views > 0 else 0
@@ -325,7 +369,8 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             'buyoutsSumRub': round(buyouts_sum_rub, 2),
             'cr1': round(cr1, 2),
             'cr2': round(cr2, 2),
-            'drrz': round(drrz, 2)
+            'drrz': round(drrz, 2),
+            'atbs': rack_atbs
         }
         
         search_data = {
@@ -346,7 +391,8 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             'buyoutsSumRub': round(buyouts_sum_rub, 2),
             'cr1': round(cr1, 2),
             'cr2': round(cr2, 2),
-            'drrz': round(drrz, 2)
+            'drrz': round(drrz, 2),
+            'atbs': search_atbs
         }
         
         all_data = {
@@ -367,7 +413,8 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             'buyoutsSumRub': round(buyouts_sum_rub, 2),
             'cr1': round(cr1, 2),
             'cr2': round(cr2, 2),
-            'drrz': round(drrz, 2)
+            'drrz': round(drrz, 2),
+            'atbs': all_atbs
         }
         
         daily_stats[date_str] = {
@@ -379,7 +426,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
         # Обновляем общие итоги
         for key in ['views', 'clicks', 'sum', 'orders', 'sum_price', 
                    'openCardCount', 'addToCartCount', 'ordersCount', 'ordersSumRub',
-                   'buyoutsCount', 'buyoutsSumRub']:
+                   'buyoutsCount', 'buyoutsSumRub', 'atbs']:
             totals['all'][key] += all_data[key]
             totals['search'][key] += search_data[key]
             totals['rack'][key] += rack_data[key]
@@ -573,3 +620,188 @@ def read_csv_directly(content):
     except Exception as e:
         logger.error(f"Ошибка при прямом чтении CSV: {e}")
         return None
+
+def keywords_analysis(request):
+    if request.method == 'POST':
+        form = KeywordsAnalysisForm(request.POST)
+        if form.is_valid():
+
+            search_advertIds = []
+            rack_advertIds = []
+            keywords = {
+                "keywords": []
+            }
+
+            advertising_type = form.cleaned_data.get('my_dropdown')
+            article_number = form.cleaned_data.get('article', '').strip()
+            date_start = form.cleaned_data.get('date_start')
+            date_end = form.cleaned_data.get('date_end')
+
+            date_start_str = date_start.strftime('%Y-%m-%d')
+            date_end_str = date_end.strftime('%Y-%m-%d')
+
+            params_keywords_stats = {
+                                        "currentPeriod": {
+                                            "start": date_start_str,
+                                            "end": date_end_str
+                                        
+                                        },
+                                        "nmIds": [int(article_number)],
+                                        "topOrderBy": "openCard",
+                                        "orderBy": {
+                                            "field": "openCard",
+                                            "mode": "desc"
+                                        },
+                                        "limit": 100
+                                    }
+
+            keywords_response = requests.post(url_keywords_stats, headers=headers_advertisings, json=params_keywords_stats)
+            
+            if keywords_response.status_code != 200:
+                return render(request, 'advertisings/keywords_analysis.html', {
+                    'form': form,
+                    'error': f'Ошибка №{keywords_response.status_code} при получении статистики ключевых слов'
+                })
+
+            keywords_data = keywords_response.json()
+
+            all_campaigns_response = requests.get(url_all_campaigns, headers=headers_advertisings)
+            if all_campaigns_response.status_code != 200:
+                return render(request, 'advertisings/campaign_analysis.html', {
+                    'form': form,
+                    'error': f'Ошибка №{all_campaigns_response.status_code} при получении данных о кампаниях'
+                })
+            all_campaigns_list = all_campaigns_response.json().get('adverts', [])
+
+            for active_campaign in all_campaigns_list:
+                if advertising_type == 'search' and active_campaign['type'] == 9: # Поисковые кампании
+                    for ids in active_campaign['advert_list']:
+                        search_advertIds.append(ids['advertId'])
+                elif advertising_type == 'rack' and active_campaign['type'] == 8: # Кампании на полке
+                    for ids in active_campaign['advert_list']:
+                        rack_advertIds.append(ids['advertId'])
+
+            search_advertId = []
+            rack_advertId = []
+
+            if search_advertIds:
+                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds)
+                for camp in search_campaign:
+                    if 'unitedParams' in camp and camp['unitedParams'] and camp['unitedParams'][0]['nms'][0] == int(article_number):
+                        search_advertId.append(camp['advertId'])
+            
+            if rack_advertIds:
+                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds)
+                for camp in rack_campaign:
+                    if 'autoParams' in camp and camp['autoParams']['nms'][0] == int(article_number):
+                        rack_advertId.append(camp['advertId'])
+
+            advertIds = []
+            if advertising_type == 'search':
+                advertIds = search_advertId
+            elif advertising_type == 'rack':
+                advertIds = rack_advertId
+
+            logger.info(f"Итоговое advertIds для артикула {article_number}: {advertIds}")
+
+            if advertIds:
+                for advert_id in advertIds:
+                    params_keywords_stats_2 = {
+                        "advert_id": advert_id,
+                        "from": date_start_str,
+                        "to": date_end_str
+                    }
+
+                    keywords_response_2 = requests.get(url_keywords_stats_2, headers=headers_advertisings, params=params_keywords_stats_2)
+                    time.sleep(0.25)
+
+                    if keywords_response_2.status_code == 200:
+                        keywords_data_2 = keywords_response_2.json().get('keywords', [])
+                        keywords['keywords'].extend(keywords_data_2)
+                        logger.info(f"Добавлено {len(keywords_data_2)} ключевых слов из advert_id {advert_id}")
+                    else:
+                        logger.warning(f"Ошибка {keywords_response_2.status_code} для advert_id {advert_id}")
+            else:
+                logger.warning("Не найдено подходящих advertIds")
+            
+
+
+            # Обработка данных ключевых слов
+            processed_keywords = process_keywords_data(
+                keywords_data=keywords_data,
+                keywords_data_2=keywords
+            )
+            
+            context = {
+                'form': form,
+                'keywords_data': processed_keywords,
+                'total_interval': f"{date_start_str} — {date_end_str}",
+                'art_prod': article_number
+            }
+            
+            return render(request, 'advertisings/keywords_analysis.html', context)
+    form = KeywordsAnalysisForm()
+    context = {'form': form}
+    return render(request, 'advertisings/keywords_analysis.html', context)
+        
+def process_keywords_data(keywords_data, keywords_data_2):
+
+    keywords_stats = defaultdict(lambda: {
+        'frequency': 0,
+        'views': 0,
+        'clicks': 0,
+        'ctr': 0,
+        'cpc': 0,
+        'sum': 0,
+        'open_card_count': 0,
+        'add_to_cart_count': 0,
+        'cr1': 0,
+        'orders_count': 0,
+        'cr2': 0,
+        'avg_position': 0,
+        'visibility': 0
+    })
+
+    for day_data in keywords_data_2.get('keywords', []):
+        for keyword_stat in day_data.get('stats', []):
+            keyword = keyword_stat['keyword']
+            keywords_stats[keyword]['views'] += keyword_stat.get('views', 0)
+            keywords_stats[keyword]['clicks'] += keyword_stat.get('clicks', 0)
+            keywords_stats[keyword]['sum'] += keyword_stat.get('sum', 0)
+
+    for keyword, stats in keywords_stats.items():
+        if stats['views'] > 0:
+            stats['ctr'] = (stats['clicks'] / stats['views'] * 100)
+        if stats['clicks'] > 0:
+            stats['cpc'] = (stats['sum'] / stats['clicks'])
+
+    for keyword_data in keywords_data.get('data', {}).get('items', []):
+        keyword = keyword_data['text']
+        if keywords_stats[keyword]:
+            keywords_stats[keyword]['frequency'] = keyword_data['frequency']['current']
+            keywords_stats[keyword]['avg_position'] = keyword_data['avgPosition']['current']
+            keywords_stats[keyword]['open_card_count'] = keyword_data['openCard']['current']
+            keywords_stats[keyword]['add_to_cart_count'] = keyword_data['addToCart']['current']
+            keywords_stats[keyword]['cr1'] = keyword_data['openToCart']['current']
+            keywords_stats[keyword]['orders_count'] = keyword_data['orders']['current']
+            keywords_stats[keyword]['cr2'] = keyword_data['cartToOrder']['current']
+            keywords_stats[keyword]['visibility'] = keyword_data['visibility']['current']
+
+    sorted_keywords = sorted(
+        keywords_stats.items(),
+        key=lambda x: x[1]['open_card_count'],
+        reverse=True
+    )
+
+    total_sum = sum(stats['sum'] for _, stats in sorted_keywords)
+
+    for keyword, stats in sorted_keywords:
+        if total_sum > 0:
+            stats['cost_percent'] = (stats['sum'] / total_sum * 100)
+        else:
+            stats['cost_percent'] = 0
+    
+    return {
+        'keywords': sorted_keywords,
+        'total_sum': total_sum
+    }

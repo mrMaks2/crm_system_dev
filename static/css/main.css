@@ -34,7 +34,7 @@
 }
 
 .navbar-nav .nav-link:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.897);
     transform: translateY(-2px);
 }
 
@@ -120,14 +120,12 @@ body {
 
 /* Фиксированный заголовок таблицы при прокрутке страницы */
 .table thead {
-    position: sticky;
     top: 0;
     z-index: 1000;
 }
 
 /* Усиливаем стили для фиксированного заголовка */
 .my-custom-header th {
-    position: sticky;
     top: 0;
     z-index: 1001;
     background-color: #e3f2fd;
@@ -176,4 +174,22 @@ body {
 
 .table-info td {
     background-color: #ddfaff;
+}
+
+/* Добавьте в ваш CSS файл */
+.dropdown-menu {
+    background-color: #e3f2fd !important;
+    border: none !important;
+}
+
+.dropdown-menu .dropdown-item.active {
+    background-color: rgb(207, 230, 255) !important;
+    color: rgb(0, 0, 0) !important;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgb(207, 230, 255);
+}
+
+.dropdown-menu .dropdown-item:hover {
+    background-color: rgba(255, 255, 255, 0.897) !important;
+    color: #000000 !important;
 }

@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Список отзывов{% endblock %}
+{% block content %}
+{% if user.is_authenticated %}
+    {% load custom_filters %}
+    {% load humanize %}
+    <div class="container">  <!-- Форма остается в контейнере -->
+        <form method="post" action="">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Введите артикул товара</h6>
+                    <div class="form-group">
+                        {{ form.article }}
+                    </div>
+                </div>
+            </div>
+            <!-- Форма фильтрации по дате -->
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Выберите диапозон дат для статистики</h6>
+                    <div class="form-group">
+                        <div class="input-group date my-1" id="datetimepicker3" data-target-input="nearest">
+                            {{ form.date_start }}
+                            <div class="input-group-append" data-target="#datetimepicker3" data-toggle="datetimepicker">
+                                <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                            </div>
+                        </div>
+                        <div class="input-group date my-1" id="datetimepicker4" data-target-input="nearest">
+                            {{ form.date_end }}
+                            <div class="input-group-append" data-target="#datetimepicker4" data-toggle="datetimepicker">
+                                <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Выберите вид рекламы</h6>
+                    <div class="form-group">
+                        {{ form.my_dropdown }}
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Показать статистику</button>
+        </form>
+
+        {% if error %}
+            <div class="alert alert-danger mt-3">{{ error }}</div>
+        {% endif %}
+    </div>
+
+    {% if total_interval %}
+    <div style="width: 100vw; margin-left: calc(-50vw + 50%);">
+        <div class="table-responsive" style="font-size: 11px;">
+            <div style="text-align: center; padding: 10px 0;">
+                <h4>Статистика ключевых слов для {{ art_prod }} за период: {{ total_interval }}</h4>
+            </div>
+            <table class="table table-hover" style="width: 95%; margin: 0 auto; table-layout: auto;">
+                <thead class="my-custom-header">
+                    <tr>
+                        <th style="min-width: 120px; height: 30px; vertical-align: middle;">Ключевые фразы</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Частотность</th>
+                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Показы</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Клики</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CTR</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CPC</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Затраты, руб</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Затраты, %</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Средняя позиция</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Переходы</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Корзины</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR1</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Цена корзины</th>
+                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Заказы</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR2</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">CPO</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Видимость</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for keyword, stats in keywords_data.keywords %}
+                    <tr>
+                        <td style="font-weight: bold; min-width: 120px;">{{ keyword }}</td>
+                        <td style="min-width: 70px;">{{ stats.frequency|default:0 }}</td>
+                        <td style="min-width: 60px;">{{ stats.views|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats.clicks|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats.ctr|floatformat:2|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ stats.cpc|floatformat:2|default:0 }} ₽</td>
+                        <td style="min-width: 70px;">{{ stats.sum|floatformat:2|default:0 }} ₽</td>
+                        <td style="min-width: 70px;">{{ stats.cost_percent|floatformat:2|default:0 }}%</td>
+                        <td style="min-width: 70px;">{{ stats.avg_position|floatformat:0|default:0 }}</td>
+                        <td style="min-width: 70px;">{{ stats.open_card_count|default:0 }}</td>
+                        <td style="min-width: 70px;">{{ stats.add_to_cart_count|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats.cr1|default:0 }} %</td>
+                        <td style="min-width: 70px;">
+                            {% if stats.add_to_cart_count > 0 %}
+                                {{ stats.sum|div:stats.add_to_cart_count|floatformat:2 }} ₽
+                            {% else %}0,00 ₽{% endif %}
+                        </td>
+                        <td style="min-width: 60px;">{{ stats.orders_count|default:0 }}</td>
+                        <td style="min-width: 50px;">{{ stats.cr2|default:0 }} %</td>
+                        <td style="min-width: 70px;">
+                            {% if stats.orders_count > 0 %}
+                                {{ stats.sum|div:stats.orders_count|floatformat:2 }} ₽
+                            {% else %}0,00 ₽{% endif %}
+                        </td>
+                        <td style="min-width: 70px;">{{ stats.visibility|default:0 }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+{% else %}
+    <div class="row container-fluid vh-100 d-flex justify-content-center align-items-center">
+        <div class="col-md-10 col-lg-8 text-center">
+            <h4>Дорогой друг, пожалуйста, <a href="{% url 'accounts:login' %}">авторизуйся</a>!</h4>
+            <p>Без авторизации сервисы данного приложения, к сожалению, не будут доступны.</p>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
