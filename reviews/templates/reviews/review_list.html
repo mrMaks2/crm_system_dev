@@ -3,6 +3,8 @@
 {% block content %}
 {% if user.is_authenticated %}
     {% load pagination_tags %}
+
+    <!-- Форма для ввода артикула -->
     <div class="row">
         <div class="col-md-12 my-2">
             <form method="get" action="">
@@ -25,7 +27,7 @@
         </div>
     </div>
 
-    <!-- Форма сортировки -->
+    <!-- Форма выбора способа сортировки -->
     <div class="row">
         <div class="col-md-12 my-2">
             <form method="get" action="">

@@ -97,11 +97,9 @@
 {% endif %}
 <script>
 $(document).ready(function() {
-    
-    // Получаем начальное количество полей
+
     let reviewCount = {{ form.field_count|default:1 }};
-    
-    // Добавление нового поля отзыва
+
     $('#add-review').click(function() {
         
         const newField = `
@@ -120,42 +118,33 @@ $(document).ready(function() {
         
         $('#reviews-container').append(newField);
         reviewCount++;
-        
-        // Активируем кнопки удаления, если есть больше одного поля
+
         if ($('.review-field').length > 1) {
             $('.remove-review').prop('disabled', false);
         }
     });
     
-    // Удаление поля отзыва
     $(document).on('click', '.remove-review', function() {
         if ($('.review-field').length > 1) {
             $(this).closest('.review-field').remove();
-            
-            // Уменьшаем счетчик, так как мы удалили одно поле
+
             reviewCount--;
-            
-            // Обновляем нумерацию всех оставшихся полей
+
             updateReviewNumbers();
-            
-            // Если осталось только одно поле, отключаем кнопку удаления
+
             if ($('.review-field').length === 1) {
                 $('.remove-review').prop('disabled', true);
             }
         }
     });
-    
-    // Функция для обновления нумерации полей
+
     function updateReviewNumbers() {
-        
-        // Перебираем все поля и обновляем их номера
+
         $('.review-field').each(function(index) {
             const newNumber = index + 1;
-            
-            // Обновляем label
+
             $(this).find('label').text(`Отзыв №${newNumber}`);
-            
-            // Обновляем имя и id поля input
+
             const input = $(this).find('input');
             input.attr('name', `review_example_${index}`);
             input.attr('id', `id_review_example_${index}`);
@@ -163,13 +152,11 @@ $(document).ready(function() {
         });
 
     }
-    
-    // Инициализация: отключаем кнопки удаления если только одно поле
+
     if ($('.review-field').length === 1) {
         $('.remove-review').prop('disabled', true);
     }
-    
-    // Сохраняем первоначальные индексы полей для отладки
+
     $('.review-field').each(function(index) {
         $(this).find('input').data('old-index', index);
     });

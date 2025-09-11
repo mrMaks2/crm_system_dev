@@ -64,6 +64,7 @@
                         <th style="min-width: 50px; height: 30px; vertical-align: middle;">Корзина</th>
                         <th style="min-width: 50px; height: 30px; vertical-align: middle;">Заказы</th>
                         <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Отменено</th>
                         <th style="min-width: 70px; height: 30px; vertical-align: middle;">Сумма заказов в РК</th>
                         <th style="min-width: 50px; height: 30px; vertical-align: middle;">Переходы</th>
                         <th style="min-width: 50px; height: 30px; vertical-align: middle;">Корзина</th>
@@ -88,6 +89,7 @@
                         <td style="font-weight: bold; min-width: 60px;">{{ stats_data.totals.all.atbs|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.orders|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.cr|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ stats_data.totals.all.canceled|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 70px;">{{ stats_data.totals.all.sum_price|default:0 }} ₽</td>
                         <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.openCardCount|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.addToCartCount|default:0 }}</td>
@@ -108,6 +110,7 @@
                         <td style="min-width: 60px;">{{ stats_data.totals.search.atbs|default:0 }}</td>
                         <td style="min-width: 50px;">{{ stats_data.totals.search.orders|default:0 }}</td>
                         <td style="min-width: 50px;">{{ stats_data.totals.search.cr|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.search.canceled|default:0 }}</td>
                         <td style="min-width: 70px;">{{ stats_data.totals.search.sum_price|default:0 }} ₽</td>
                     </tr>
                     <tr class="table-info">
@@ -121,6 +124,7 @@
                         <td style="min-width: 60px;">{{ stats_data.totals.rack.atbs|default:0 }}</td>
                         <td style="min-width: 50px;">{{ stats_data.totals.rack.orders|default:0 }}</td>
                         <td style="min-width: 50px;">{{ stats_data.totals.rack.cr|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ stats_data.totals.rack.canceled|default:0 }}</td>
                         <td style="min-width: 70px;">{{ stats_data.totals.rack.sum_price|default:0 }} ₽</td>
                     </tr>
                     {% endif %}
@@ -139,6 +143,7 @@
                         <td style="font-weight: bold; min-width: 60px;">{{ day_stats.all.atbs|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.orders|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.cr|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.canceled|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 70px;">{{ day_stats.all.sum_price|default:0 }} ₽</td>
                         <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.openCardCount|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.addToCartCount|default:0 }}</td>
@@ -159,6 +164,7 @@
                         <td style="min-width: 60px;">{{ day_stats.search.atbs|default:0 }}</td>
                         <td style="min-width: 50px;">{{ day_stats.search.orders|default:0 }}</td>
                         <td style="min-width: 50px;">{{ day_stats.search.cr|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ day_stats.search.canceled|default:0 }}</td>
                         <td style="min-width: 70px;">{{ day_stats.search.sum_price|default:0 }} ₽</td>
                     </tr>
                     <tr>
@@ -172,6 +178,7 @@
                         <td style="min-width: 60px;">{{ day_stats.rack.atbs|default:0 }}</td>
                         <td style="min-width: 50px;">{{ day_stats.rack.orders|default:0 }}</td>
                         <td style="min-width: 50px;">{{ day_stats.rack.cr|default:0 }} %</td>
+                        <td style="min-width: 50px;">{{ day_stats.rack.canceled|default:0 }}</td>
                         <td style="min-width: 70px;">{{ day_stats.rack.sum_price|default:0 }} ₽</td>
                     </tr>
                     {% endwith %}

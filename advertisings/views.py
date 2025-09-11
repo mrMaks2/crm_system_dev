@@ -46,18 +46,14 @@ def advertisings_analysis(request):
             date_start_str = date_start.strftime('%Y-%m-%d')
             date_end_str = date_end.strftime('%Y-%m-%d')
 
-            # Генерируем ключ для кеша на основе параметров запроса
             cache_key = f"report_{date_start_str}_{date_end_str}"
             
-            # Проверяем, есть ли закешированный отчет
             cached_report_uuid = cache.get(cache_key)
             
             if cached_report_uuid:
-                # Используем закешированный UUID
                 uuid_string = cached_report_uuid
                 logger.info(f"Используем закешированный отчет с UUID: {uuid_string}")
             else:
-                # Генерируем новый UUID и кешируем запрос
                 random_uuid = uuid.uuid4()
                 uuid_string = str(random_uuid)
                 logger.info(f"Создаем новый отчет с UUID: {uuid_string}")
@@ -87,7 +83,6 @@ def advertisings_analysis(request):
             if rack_advertIds:
                 rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds)
 
-            # Изменено: search_advertId и rack_advertId теперь списки
             search_advertId = []
             rack_advertId = []
 
@@ -103,11 +98,9 @@ def advertisings_analysis(request):
             for advert_id in search_advertId:
                 id_list.append(str(advert_id))
             
-            # Добавляем все кампании на полке
             for advert_id in rack_advertId:
                 id_list.append(str(advert_id))
 
-            # Создаем параметры для всех найденных кампаний
             params = {
                 "ids": ','.join(id_list),
                 "beginDate": date_start_str,
@@ -183,7 +176,6 @@ def advertisings_analysis(request):
 
 def make_batched_requests(url, advert_ids):
     results = []
-    # Разбиваем на пакеты по 50 элементов
     for i in range(0, len(advert_ids), 50):
         batch = advert_ids[i:i+50]
         response = requests.post(url, headers=headers_advertisings, json=batch)
@@ -205,12 +197,11 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             date_str = day['date'].split('T')[0]
             all_dates.add(date_str)
     
-    # Сортируем даты
+    # Сортируем даты в обратном порядке
     sorted_dates = sorted(all_dates, reverse=True)
     
     # Создаем структуру данных для каждой даты
     for date_str in sorted_dates:
-        # Инициализируем advertId для поиска и полки как словари
         search_adverts = {advert_id: None for advert_id in search_advertId}
         rack_adverts = {advert_id: None for advert_id in rack_advertId}
         
@@ -223,7 +214,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             }
         }
     
-    # Заполняем данные для каждого advertId
+    # Заполняем данные для каждого advertId в зависимости от РК
     for advert in response:
         advert_id = advert['advertId']
         advert_type = 'search' if advert_id in search_advertId else 'rack'
@@ -265,13 +256,13 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
     totals = {
         'all': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
                 'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
-                'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0},
+                'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0, 'canceled': 0},
         'search': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
                   'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
-                  'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0},
+                  'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0, 'canceled': 0},
         'rack': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
                 'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
-                'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0}
+                'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0, 'canceled': 0}
     }
     
     for date_str in sorted_dates:
@@ -284,6 +275,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
         search_orders = 0
         search_sum_price = 0
         search_atbs = 0
+        search_canceled = 0
         
         for advert_data in date_info['adverts']['search'].values():
             if advert_data:
@@ -293,6 +285,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
                 search_orders += advert_data.get('orders', 0)
                 search_sum_price += advert_data.get('sum_price', 0)
                 search_atbs += advert_data.get('atbs', 0)
+                search_canceled += advert_data.get('canceled', 0)
         
         # Суммируем данные по всем кампаниям на полке
         rack_views = 0
@@ -301,6 +294,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
         rack_orders = 0
         rack_sum_price = 0
         rack_atbs = 0
+        rack_canceled = 0
         
         for advert_data in date_info['adverts']['rack'].values():
             if advert_data:
@@ -310,6 +304,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
                 rack_orders += advert_data.get('orders', 0)
                 rack_sum_price += advert_data.get('sum_price', 0)
                 rack_atbs += advert_data.get('atbs', 0)
+                rack_canceled += advert_data.get('canceled', 0)
         
         # Данные из отчета
         report_data_day = report_stats.get(date_str, {})
@@ -327,6 +322,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
         all_orders = rack_orders + search_orders
         all_sum_price = rack_sum_price + search_sum_price
         all_atbs = rack_atbs + search_atbs
+        all_canceled = rack_canceled + search_canceled
         
         # Рассчитываем метрики за сутки
         rack_ctr = (rack_clicks / rack_views * 100) if rack_views > 0 else 0
@@ -341,12 +337,12 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
         search_cr = (search_orders / search_clicks * 100) if search_clicks > 0 else 0
         all_cr = (all_orders / all_clicks * 100) if all_clicks > 0 else 0
         
-        # Рассчитываем CPO (Cost Per Order)
+        # Рассчитываем CPO
         rack_cpo = (rack_sum / rack_orders) if rack_orders > 0 else 0
         search_cpo = (search_sum / search_orders) if search_orders > 0 else 0
         all_cpo = (all_sum / all_orders) if all_orders > 0 else 0
         
-        # Рассчитываем новые метрики из отчета
+        # Рассчитываем метрики из отчета
         cr1 = (add_to_cart_count / open_card_count * 100) if open_card_count > 0 else 0
         cr2 = (orders_count / add_to_cart_count * 100) if add_to_cart_count > 0 else 0
         drrz = (all_sum / orders_sum_rub * 100) if orders_sum_rub > 0 else 0
@@ -370,7 +366,8 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             'cr1': round(cr1, 2),
             'cr2': round(cr2, 2),
             'drrz': round(drrz, 2),
-            'atbs': rack_atbs
+            'atbs': rack_atbs,
+            'canceled': rack_canceled
         }
         
         search_data = {
@@ -392,7 +389,8 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             'cr1': round(cr1, 2),
             'cr2': round(cr2, 2),
             'drrz': round(drrz, 2),
-            'atbs': search_atbs
+            'atbs': search_atbs,
+            'canceled': search_canceled
         }
         
         all_data = {
@@ -414,7 +412,8 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             'cr1': round(cr1, 2),
             'cr2': round(cr2, 2),
             'drrz': round(drrz, 2),
-            'atbs': all_atbs
+            'atbs': all_atbs,
+            'canceled': all_canceled
         }
         
         daily_stats[date_str] = {
@@ -426,7 +425,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
         # Обновляем общие итоги
         for key in ['views', 'clicks', 'sum', 'orders', 'sum_price', 
                    'openCardCount', 'addToCartCount', 'ordersCount', 'ordersSumRub',
-                   'buyoutsCount', 'buyoutsSumRub', 'atbs']:
+                   'buyoutsCount', 'buyoutsSumRub', 'atbs', 'canceled']:
             totals['all'][key] += all_data[key]
             totals['search'][key] += search_data[key]
             totals['rack'][key] += rack_data[key]
@@ -448,7 +447,7 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
     rack_cr_total = (totals['rack']['orders'] / totals['rack']['clicks'] * 100) if totals['rack']['clicks'] > 0 else 0
     rack_cpo_total = (totals['rack']['sum'] / totals['rack']['orders']) if totals['rack']['orders'] > 0 else 0
     
-    # Новые метрики из отчета
+    # Метрики из отчета для всего интервала
     all_cr1_total = (totals['all']['addToCartCount'] / totals['all']['openCardCount'] * 100) if totals['all']['openCardCount'] > 0 else 0
     all_cr2_total = (totals['all']['ordersCount'] / totals['all']['addToCartCount'] * 100) if totals['all']['addToCartCount'] > 0 else 0
     all_drrz_total = (totals['all']['sum'] / totals['all']['ordersSumRub'] * 100) if totals['all']['ordersSumRub'] > 0 else 0
@@ -512,7 +511,6 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
     }
 
 def get_day_name(date_str):
-    """Получаем название дня недели на русском"""
     date_obj = parse_date(date_str)
     days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
     return days[date_obj.weekday()]
@@ -548,7 +546,7 @@ def process_zip_report(response):
                         try:
                             logger.info(f"Пытаемся прочитать файл: {csv_file}")
                             with zip_ref.open(csv_file) as f:
-                                # Читаем первые несколько строк для отладки
+                                # Читаем первые несколько строк для логирования
                                 content = f.read(500)
                                 logger.info(f"Первые 500 байт CSV: {content}")
                                 
@@ -724,9 +722,6 @@ def keywords_analysis(request):
             else:
                 logger.warning("Не найдено подходящих advertIds")
             
-
-
-            # Обработка данных ключевых слов
             processed_keywords = process_keywords_data(
                 keywords_data=keywords_data,
                 keywords_data_2=keywords

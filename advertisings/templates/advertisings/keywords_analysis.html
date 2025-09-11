@@ -39,7 +39,14 @@
                 <div class="col-md-12 my-2">
                     <h6>Выберите вид рекламы</h6>
                     <div class="form-group">
-                        {{ form.my_dropdown }}
+                        <select name="{{ form.my_dropdown.name }}" class="form-control">
+                            <option value="" disabled selected hidden>Выберите вид рекламы</option>
+                            {% for choice in form.my_dropdown.field.choices %}
+                                <option value="{{ choice.0 }}" {% if choice.0 == form.my_dropdown.value %}selected{% endif %}>
+                                    {{ choice.1 }}
+                                </option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
             </div>
@@ -62,20 +69,20 @@
                     <tr>
                         <th style="min-width: 120px; height: 30px; vertical-align: middle;">Ключевые фразы</th>
                         <th style="min-width: 70px; height: 30px; vertical-align: middle;">Частотность</th>
-                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Показы</th>
-                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Клики</th>
-                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CTR</th>
-                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CPC</th>
+                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Показы, шт</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">Клики, шт</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CTR, %</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CPC, руб</th>
                         <th style="min-width: 70px; height: 30px; vertical-align: middle;">Затраты, руб</th>
                         <th style="min-width: 70px; height: 30px; vertical-align: middle;">Затраты, %</th>
                         <th style="min-width: 70px; height: 30px; vertical-align: middle;">Средняя позиция</th>
-                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Переходы</th>
-                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Корзины</th>
-                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR1</th>
-                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Цена корзины</th>
-                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Заказы</th>
-                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR2</th>
-                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">CPO</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Переходы, шт</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Корзины, шт</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR1, %</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">Цена корзины, руб</th>
+                        <th style="min-width: 60px; height: 30px; vertical-align: middle;">Заказы, шт</th>
+                        <th style="min-width: 50px; height: 30px; vertical-align: middle;">CR2, %</th>
+                        <th style="min-width: 70px; height: 30px; vertical-align: middle;">CPO, руб</th>
                         <th style="min-width: 70px; height: 30px; vertical-align: middle;">Видимость</th>
                     </tr>
                 </thead>
@@ -83,30 +90,30 @@
                     {% for keyword, stats in keywords_data.keywords %}
                     <tr>
                         <td style="font-weight: bold; min-width: 120px;">{{ keyword }}</td>
-                        <td style="min-width: 70px;">{{ stats.frequency|default:0 }}</td>
-                        <td style="min-width: 60px;">{{ stats.views|default:0 }}</td>
-                        <td style="min-width: 50px;">{{ stats.clicks|default:0 }}</td>
-                        <td style="min-width: 50px;">{{ stats.ctr|floatformat:2|default:0 }} %</td>
-                        <td style="min-width: 50px;">{{ stats.cpc|floatformat:2|default:0 }} ₽</td>
-                        <td style="min-width: 70px;">{{ stats.sum|floatformat:2|default:0 }} ₽</td>
-                        <td style="min-width: 70px;">{{ stats.cost_percent|floatformat:2|default:0 }}%</td>
-                        <td style="min-width: 70px;">{{ stats.avg_position|floatformat:0|default:0 }}</td>
-                        <td style="min-width: 70px;">{{ stats.open_card_count|default:0 }}</td>
-                        <td style="min-width: 70px;">{{ stats.add_to_cart_count|default:0 }}</td>
-                        <td style="min-width: 50px;">{{ stats.cr1|default:0 }} %</td>
+                        <td style="min-width: 70px;">{{ stats.frequency|default:'-' }}</td>
+                        <td style="min-width: 60px;">{{ stats.views|default:'-' }}</td>
+                        <td style="min-width: 50px;">{{ stats.clicks|default:'-' }}</td>
+                        <td style="min-width: 50px;">{{ stats.ctr|floatformat:2|default:'-' }}</td>
+                        <td style="min-width: 50px;">{{ stats.cpc|floatformat:2|default:'-' }}</td>
+                        <td style="min-width: 70px;">{{ stats.sum|floatformat:2|default:'-' }}</td>
+                        <td style="min-width: 70px;">{{ stats.cost_percent|floatformat:2|default:'-' }}</td>
+                        <td style="min-width: 70px;">{{ stats.avg_position|floatformat:0|default:'-' }}</td>
+                        <td style="min-width: 70px;">{{ stats.open_card_count|default:'-' }}</td>
+                        <td style="min-width: 70px;">{{ stats.add_to_cart_count|default:'-' }}</td>
+                        <td style="min-width: 50px;">{{ stats.cr1|default:'-' }}</td>
                         <td style="min-width: 70px;">
                             {% if stats.add_to_cart_count > 0 %}
-                                {{ stats.sum|div:stats.add_to_cart_count|floatformat:2 }} ₽
-                            {% else %}0,00 ₽{% endif %}
+                                {{ stats.sum|div:stats.add_to_cart_count|floatformat:2 }}
+                            {% else %}-{% endif %}
                         </td>
-                        <td style="min-width: 60px;">{{ stats.orders_count|default:0 }}</td>
-                        <td style="min-width: 50px;">{{ stats.cr2|default:0 }} %</td>
+                        <td style="min-width: 60px;">{{ stats.orders_count|default:'-' }}</td>
+                        <td style="min-width: 50px;">{{ stats.cr2|default:'-' }}</td>
                         <td style="min-width: 70px;">
                             {% if stats.orders_count > 0 %}
-                                {{ stats.sum|div:stats.orders_count|floatformat:2 }} ₽
-                            {% else %}0,00 ₽{% endif %}
+                                {{ stats.sum|div:stats.orders_count|floatformat:2 }}
+                            {% else %}-{% endif %}
                         </td>
-                        <td style="min-width: 70px;">{{ stats.visibility|default:0 }}%</td>
+                        <td style="min-width: 70px;">{{ stats.visibility|default:'-' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

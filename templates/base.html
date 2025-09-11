@@ -120,7 +120,7 @@
 
     <script>
     $(document).ready(function() {
-        // Инициализация datetimepicker с русской локализацией и нужным форматом
+
         $('#datetimepicker1').datetimepicker({
             format: 'DD/MM/YYYY HH:mm',
             locale: 'ru',
@@ -153,7 +153,6 @@
             sideBySide: true
         });
 
-        // Связывание datetimepicker'ов
         $("#datetimepicker1").on("change.datetimepicker", function (e) {
             $('#datetimepicker2').datetimepicker('minDate', e.date);
         });
@@ -168,7 +167,6 @@
             $('#datetimepicker3').datetimepicker('maxDate', e.date);
         });
 
-        // Инициализация Select2
         $('.js-example-basic-single').select2();
         $('.js-example-basic-multiple').select2();
     });
