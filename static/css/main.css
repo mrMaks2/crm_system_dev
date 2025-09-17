@@ -180,6 +180,11 @@ body {
 .dropdown-menu {
     background-color: #e3f2fd !important;
     border: none !important;
+    border-radius: 15px !important; /* Добавляем скругленные углы */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important; /* Тень как у навбара */
+    padding: 0.5rem 0;
+    margin-top: 0.5rem;
+    overflow: hidden;
 }
 
 .dropdown-menu .dropdown-item.active {
@@ -192,4 +197,5 @@ body {
 .dropdown-menu .dropdown-item:hover {
     background-color: rgba(255, 255, 255, 0.897) !important;
     color: #000000 !important;
+    transform: translateY(-2px);
 }

@@ -20,10 +20,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    command: >
-      sh -c "python manage.py makemigrations &&
-            python manage.py migrate &&
-            python manage.py runserver 0.0.0.0:8000"
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
       - ./staticfiles:/app/staticfiles
@@ -76,5 +73,5 @@ services:
 
 
 volumes:
-  postgres_data: {}
+  postgres_data:
   static_volume:

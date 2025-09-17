@@ -155,6 +155,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'reviews.tasks.deleter_reviews',
         'schedule': crontab(minute='*/15'),
     },
+    # 'get-and-save-advertisings-stats-every-day': {
+    #     'task': 'advertisings.tasks.get_and_save_advertisings_stats',
+    #     'schedule': crontab(minute='0', hour='9'),
+    # },
+    # 'export-statistics-to-google-sheets-every-day': {
+    #     'task': 'advertisings.tasks.export_statistics_to_google_sheets',
+    #     'schedule': crontab(minute='0', hour='9'),
+    # },
 }
 
 CELERY_BROKER_URL = 'redis://redis:6379/0'

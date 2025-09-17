@@ -35,8 +35,6 @@ def advertisings_analysis(request):
         form = CampaignAnalysisForm(request.POST)
         if form.is_valid():
 
-            random_uuid = uuid.uuid4()
-            uuid_string = str(random_uuid)
             search_advertIds = []
             rack_advertIds = []
             article_number = form.cleaned_data.get('article', '').strip()
@@ -185,7 +183,7 @@ def make_batched_requests(url, advert_ids):
             logger.warning(f"Ошибка при запросе пакета {i//50 + 1}: {response.status_code}")
     return results
 
-def process_api_data(response, search_advertId, rack_advertId, report_data=None, article_number=None):
+def process_api_data(response, search_advertId, rack_advertId, report_data=None, article_number=None, all_articles=None):
     
     # Группируем данные по датам
     dates_data = {}
@@ -250,8 +248,27 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
                     'buyoutsCount': item.get('buyoutsCount', 0),
                     'buyoutsSumRub': item.get('buyoutsSumRub', 0)
                 }
-    
-    # Создаем структуру для ежедневной статистики
+    elif article_number == None:
+        for item in report_data:
+            dt_value = item['dt']
+            if isinstance(dt_value, str):
+                if 'T' in dt_value:
+                    date_str = dt_value.split('T')[0]
+                else:
+                    date_str = dt_value
+            elif hasattr(dt_value, 'strftime'):
+                date_str = dt_value.strftime('%Y-%m-%d')
+                
+            report_stats[date_str] = {
+                'openCardCount': item.get('openCardCount', 0),
+                'addToCartCount': item.get('addToCartCount', 0),
+                'ordersCount': item.get('ordersCount', 0),
+                'ordersSumRub': item.get('ordersSumRub', 0),
+                'buyoutsCount': item.get('buyoutsCount', 0),
+                'buyoutsSumRub': item.get('buyoutsSumRub', 0)
+            }
+
+    # Создаем структуру для ежедневной статистики - ИНИЦИАЛИЗИРУЕМ ПРЕЖДЕ ЧЕМ ИСПОЛЬЗОВАТЬ
     daily_stats = {}
     totals = {
         'all': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
@@ -264,6 +281,48 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
                 'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
                 'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0, 'canceled': 0}
     }
+
+    # Инициализируем daily_stats для каждой даты
+    for date_str in sorted_dates:
+        daily_stats[date_str] = {
+            'all': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
+                   'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
+                   'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0, 'canceled': 0,
+                   'article_numbers': []},
+            'search': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
+                     'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
+                     'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0, 'canceled': 0,
+                     'article_numbers': []},
+            'rack': {'views': 0, 'clicks': 0, 'sum': 0, 'orders': 0, 'sum_price': 0,
+                   'openCardCount': 0, 'addToCartCount': 0, 'ordersCount': 0, 'ordersSumRub': 0,
+                   'buyoutsCount': 0, 'buyoutsSumRub': 0, 'atbs': 0, 'canceled': 0,
+                   'article_numbers': []}
+        }
+
+    date_articles = defaultdict(set)
+    
+    # Заполняем article_number для каждого advertId
+    for advert in response:
+        advert_id = advert['advertId']
+        article_num = advert.get('article_number')
+        
+        if article_num:
+            for day in advert['days']:
+                date_str = day['date'].split('T')[0]
+                date_articles[date_str].add(article_num)
+    
+    # Добавляем article_number в daily_stats
+    for date_str in sorted_dates:
+        articles_for_date = list(date_articles.get(date_str, []))
+        
+        # Если переданы все артикулы, используем их
+        if all_articles and not articles_for_date:
+            articles_for_date = all_articles
+        
+        # Теперь daily_stats[date_str] гарантированно существует
+        daily_stats[date_str]['all']['article_numbers'] = articles_for_date
+        daily_stats[date_str]['search']['article_numbers'] = articles_for_date
+        daily_stats[date_str]['rack']['article_numbers'] = articles_for_date
     
     for date_str in sorted_dates:
         date_info = dates_data[date_str]
@@ -416,11 +475,10 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
             'canceled': all_canceled
         }
         
-        daily_stats[date_str] = {
-            'all': all_data,
-            'search': search_data,
-            'rack': rack_data
-        }
+        # Обновляем daily_stats вместо перезаписи
+        daily_stats[date_str]['all'].update(all_data)
+        daily_stats[date_str]['search'].update(search_data)
+        daily_stats[date_str]['rack'].update(rack_data)
         
         # Обновляем общие итоги
         for key in ['views', 'clicks', 'sum', 'orders', 'sum_price', 
@@ -507,7 +565,8 @@ def process_api_data(response, search_advertId, rack_advertId, report_data=None,
         'dates': sorted_dates,
         'dates_data': dates_data,
         'daily_stats': daily_stats,
-        'totals': totals
+        'totals': totals,
+        'all_articles': list(all_articles) if all_articles else []
     }
 
 def get_day_name(date_str):

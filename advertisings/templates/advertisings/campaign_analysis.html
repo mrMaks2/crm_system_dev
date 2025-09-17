@@ -100,7 +100,7 @@
                         <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ stats_data.totals.all.drrz|default:0 }} %</td>
                     </tr>
                     <tr class="table-info">
-                        <td style="min-width: 60px;">Поиск</td>
+                        <td style="min-width: 60px;">АУК</td>
                         <td style="min-width: 60px;">{{ stats_data.totals.search.views|default:0 }}</td>
                         <td style="min-width: 50px;">{{ stats_data.totals.search.clicks|default:0 }}</td>
                         <td style="min-width: 50px;">{{ stats_data.totals.search.ctr|default:0 }} %</td>
@@ -114,7 +114,7 @@
                         <td style="min-width: 70px;">{{ stats_data.totals.search.sum_price|default:0 }} ₽</td>
                     </tr>
                     <tr class="table-info">
-                        <td style="min-width: 60px;">Полка</td>
+                        <td style="min-width: 60px;">АРК</td>
                         <td style="min-width: 60px;">{{ stats_data.totals.rack.views|default:0 }}</td>
                         <td style="min-width: 50px;">{{ stats_data.totals.rack.clicks|default:0 }}</td>
                         <td style="min-width: 50px;">{{ stats_data.totals.rack.ctr|default:0 }} %</td>
@@ -136,7 +136,12 @@
                         <td style="font-weight: bold; min-width: 60px;">Всего</td>
                         <td style="font-weight: bold; min-width: 60px;">{{ day_stats.all.views|default:0 }}</td>
                         <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.clicks|default:0 }}</td>
-                        <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.ctr|default:0 }} %</td>
+                        <td style="font-weight: bold; min-width: 50px;
+                            {% if day_stats.all.ctr < 1.7 %}background-color: #ff556e73;
+                            {% elif day_stats.all.ctr > 2 %}background-color: #55ff5d73;
+                            {% endif %}">
+                             {{ day_stats.all.ctr|default:0 }} %
+                        </td>
                         <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.cpc|default:0 }} ₽</td>
                         <td style="font-weight: bold; min-width: 50px;">{{ day_stats.all.cpo|default:0 }} ₽</td>
                         <td style="font-weight: bold; min-width: 60px;">{{ day_stats.all.sum|default:0 }} ₽</td>
@@ -154,7 +159,7 @@
                         <td style="font-weight: bold; min-width: 50px; vertical-align: top;" rowspan="3">{{ day_stats.all.drrz|default:0 }} %</td>
                     </tr>
                     <tr>
-                        <td style="min-width: 60px;">Поиск</td>
+                        <td style="min-width: 60px;">АУК</td>
                         <td style="min-width: 60px;">{{ day_stats.search.views|default:0 }}</td>
                         <td style="min-width: 50px;">{{ day_stats.search.clicks|default:0 }}</td>
                         <td style="min-width: 50px;">{{ day_stats.search.ctr|default:0 }} %</td>
@@ -168,7 +173,7 @@
                         <td style="min-width: 70px;">{{ day_stats.search.sum_price|default:0 }} ₽</td>
                     </tr>
                     <tr>
-                        <td style="min-width: 60px;">Полка</td>
+                        <td style="min-width: 60px;">АРК</td>
                         <td style="min-width: 60px;">{{ day_stats.rack.views|default:0 }}</td>
                         <td style="min-width: 50px;">{{ day_stats.rack.clicks|default:0 }}</td>
                         <td style="min-width: 50px;">{{ day_stats.rack.ctr|default:0 }} %</td>

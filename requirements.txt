@@ -7,4 +7,6 @@ django-redis
 django-celery-beat
 psycopg2-binary
 pandas
+gspread
+google-auth
 # sentence-transformers
