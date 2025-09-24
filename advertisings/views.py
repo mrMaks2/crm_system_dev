@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('advertisings_views')
 
 load_dotenv()
-jwt_advertisings = os.getenv('jwt_advertisings')
+jwt_advertisings = os.getenv('jwt_advertisings_cab1')
 
 headers_advertisings = {
         'Authorization':jwt_advertisings

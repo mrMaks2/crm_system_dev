@@ -15,6 +15,8 @@ class Statics(models.Model):
     basket_PK = models.IntegerField(null=True, blank=True, verbose_name="Корзина из РК")
     orders_num_PK = models.IntegerField(null=True, blank=True, verbose_name="Количество заказов с РК")
     orders_sum_PK = models.IntegerField(null=True, blank=True, verbose_name="Сумма заказов с РК")
+    buyouts_num = models.IntegerField(null=True, blank=True, verbose_name="Количество выкупов")
+    buyouts_sum = models.IntegerField(null=True, blank=True, verbose_name="Сумма выкупов")
     views_AYK = models.IntegerField(null=True, blank=True, verbose_name="АУК показы")
     clicks_AYK = models.IntegerField(null=True, blank=True, verbose_name="АУК клики")
     basket_AYK = models.IntegerField(null=True, blank=True, verbose_name="АУК корзина")

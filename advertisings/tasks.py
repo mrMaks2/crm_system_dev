@@ -422,6 +422,8 @@ def get_article_stats_for_date(processed_data, article_number, date_str):
         'basket_PK': int(article_stats['atbs']),
         'orders_num_PK': int(article_stats['orders']),
         'orders_sum_PK': int(article_stats['sum_price']),
+        'buyouts_num': int(report_stats['buyoutsCount']),
+        'buyouts_sum': int(report_stats['buyoutsSumRub']),
         
         # Данные для поисковых кампаний
         'views_AYK': int(article_search_stats['views']),
@@ -465,7 +467,9 @@ def update_existing_record(record, stats):
     record.basket_APK = stats['basket_APK']
     record.orders_APK = stats['orders_APK']
     record.cost_APK = stats['cost_APK']
-    record.avg_spp = stats.get('avg_spp', 0)
+    record.avg_spp = stats['avg_spp']
+    record.buyouts_num = stats['buyouts_num']
+    record.buyouts_sum = stats['buyouts_sum']
     record.save()
 
 def create_new_record(date_obj, article_number, stats, cab_num):
@@ -494,5 +498,7 @@ def create_new_record(date_obj, article_number, stats, cab_num):
         basket_APK=stats['basket_APK'],
         orders_APK=stats['orders_APK'],
         cost_APK=stats['cost_APK'],
-        avg_spp=stats.get('avg_spp', 0)
+        avg_spp=stats['avg_spp'],
+        buyouts_num = stats['buyouts_num'],
+        buyouts_sum = stats['buyouts_sum']
     )
