@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'price_changer',
     'accounts',
     'advertisings',
+    'product_cards',
 ]
 
 MIDDLEWARE = [

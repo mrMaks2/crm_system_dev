@@ -3,6 +3,7 @@
 {% url 'reviews:check' as reviews_check_url %}
 {% url 'advertisings:campaign_analysis' as campaign_analysis_url %}
 {% url 'advertisings:keywords_analysis' as keywords_analysis_url %}
+{% url 'product_cards:product_cards' as product_cards_url %}
 
 <!doctype html>
 <html lang="en">
@@ -44,6 +45,9 @@
       <div class="collapse navbar-collapse" id="navbarNavDropdown">
         <ul class="navbar-nav ml-auto">
           {% if user.is_authenticated %}
+            <li class="nav-item mx-1 {% if request.path == product_cards_url %} active {% endif %}">
+              <a class="nav-link" href="{% url 'product_cards:product_cards' %}" id="brand">Карточка товара </a>
+            </li>
             <li class="nav-item mx-1 {% if request.path == review_list_url %} active {% endif %}">
               <a class="nav-link" href="{% url 'reviews:review_list' %}" id="brand">Отзывы </a>
             </li>

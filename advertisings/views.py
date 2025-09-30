@@ -843,7 +843,7 @@ def process_keywords_data(keywords_data, keywords_data_2):
 
     sorted_keywords = sorted(
         keywords_stats.items(),
-        key=lambda x: x[1]['open_card_count'],
+        key=lambda x: x[1]['views'],
         reverse=True
     )
 

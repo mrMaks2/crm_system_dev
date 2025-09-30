@@ -1,0 +1,1602 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Карточки товаров Wildberries{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card custom-card">
+                <div class="card-header custom-card-header">
+                    <h4 class="mb-0"><i class="fa fa-search me-2"></i> Поиск карточки товара</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.article.label_tag }}
+                                    {{ form.article }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.cabinet.label_tag }}
+                                    <div class="form-group">
+                                        <select name="{{ form.cabinet.name }}" class="form-control">
+                                            <option value="" disabled selected hidden>Выберите номер кабинета</option>
+                                            {% for choice in form.cabinet.field.choices %}
+                                                <option value="{{ choice.0 }}" {% if choice.0 == form.cabinet.value %}selected{% endif %}>
+                                                    {{ choice.1 }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-search me-1"></i> Найти товар
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {% if error %}
+                <div class="alert alert-danger mt-3 custom-alert" role="alert">
+                    <i class="fa fa-exclamation-triangle me-2"></i>{{ error }}
+                </div>
+            {% endif %}
+
+            {% if product_card %}
+            <!-- Режим просмотра -->
+            <div id="viewMode" class="mt-4">
+                <div class="card custom-card">
+                    <div class="card-header custom-card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fa fa-cube me-2"></i> Карточка товара: {{ product_card.nmID }}
+                        </h5>
+                        <button class="btn btn-outline-primary" onclick="toggleEdit()">
+                            <i class="fa fa-edit me-1"></i> Редактировать
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Воронка изображений -->
+                        <div class="row mb-4 align-items-center">
+                            <div class="col-6">
+                                <h6 class="section-title"><i class="fa fa-images me-2"></i>Изображения товара</h6>
+                                <div class="image-funnel">
+                                    <!-- Основное большое изображение с управлением -->
+                                    <div class="main-image">
+                                        <div class="main-image-container">
+                                            <img id="mainImage" src="" class="img-fluid rounded border custom-border">
+                                            <div class="main-image-overlay">
+                                                <div class="main-image-controls">
+                                                    <button class="btn btn-warning btn-sm" onclick="openReplaceModal()" title="Заменить изображение">
+                                                        <i class="fa fa-refresh me-1"></i> Заменить
+                                                    </button>
+                                                    <button class="btn btn-info btn-sm" onclick="openAddModal()" title="Добавить новое изображение">
+                                                        <i class="fa fa-plus me-1"></i> Добавить
+                                                    </button>
+                                                    <button class="btn btn-success btn-sm" onclick="enableReorderMode()" title="Изменить порядок изображений">
+                                                        <i class="fa fa-arrows me-1"></i> Порядок
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="main-image-info mt-2 text-center">
+                                            <small class="text-muted" id="currentImageInfo">Изображение 1 из {{ product_card.photos|length }}</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Миниатюры только для выбора -->
+                                    <div class="thumbnails">
+                                        {% for photo in product_card.photos %}
+                                        <img src="{{ photo.big }}" class="thumbnail rounded custom-border" 
+                                            onclick="selectImage('{{ photo.big }}', this)"
+                                            data-index="{{ forloop.index0 }}"
+                                            {% if forloop.first %}id="firstThumbnail"{% endif %}>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Артикул WB:</strong> <span id="viewNmID" class="product-info">{{ product_card.nmID }}</span></p>
+                                <p><strong>Артикул продавца:</strong> <span id="viewVendorCode" class="product-info">{{ product_card.vendorCode }}</span></p>
+                                <p><strong>Бренд:</strong> <span id="viewBrand" class="product-info">{{ product_card.brand }}</span></p>
+                                <p><strong>Название:</strong> <span id="viewTitle" class="product-info">{{ product_card.title }}</span></p>
+                                <p><strong>Категория:</strong> <span id="viewSubjectName" class="product-info">{{ product_card.subjectName }}</span></p>
+                                <p><strong>Габариты:</strong> 
+                                    <span id="viewDimensions" class="product-info">
+                                        {{ product_card.dimensions.length }} × {{ product_card.dimensions.width }} × {{ product_card.dimensions.height }} см
+                                    </span>
+                                </p>
+                                <p><strong>Вес брутто:</strong> <span id="viewWeight" class="product-info">{{ product_card.dimensions.weightBrutto }} кг</span></p>
+                                <p><strong>Статус КИЗ:</strong> <span id="viewKiz" class="product-info">{% if product_card.needKiz %}Требуется{% else %}Не требуется{% endif %}</span></p>
+                            </div>
+                        </div>
+
+                        <!-- Модальное окно замены изображения -->
+                        <div class="modal fade" id="replaceImageModal" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content custom-card">
+                                    <div class="modal-header custom-card-header">
+                                        <h5 class="modal-title">Замена изображения</h5>
+                                        <button type="button" class="close" data-dismiss="modal">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Текущее изображение: <strong id="currentPosition">1</strong></label>
+                                            <div class="current-image-preview mb-3 text-center">
+                                                <img id="replacePreview" src="" class="img-fluid rounded border" style="max-height: 200px;">
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="replaceFile" class="form-label">Выберите новое изображение</label>
+                                            <input type="file" class="form-control custom-input" id="replaceFile" accept="image/*">
+                                            <small class="form-text text-muted">
+                                                Форматы: JPG, PNG, BMP, GIF, WebP (до 32 МБ)<br>
+                                                Минимальное разрешение: 700x900 px
+                                            </small>
+                                        </div>
+                                        <div id="replaceProgress" style="display: none;">
+                                            <div class="progress">
+                                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                            <small class="text-muted">Загрузка...</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary " data-dismiss="modal">Отмена</button>
+                                        <button type="button" class="btn btn-warning " onclick="replaceCurrentImage()" id="replaceButton">
+                                            <i class="fa fa-refresh me-1"></i> Заменить
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Модальное окно добавления изображения -->
+                        <div class="modal fade" id="addImageModal" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content custom-card">
+                                    <div class="modal-header custom-card-header">
+                                        <h5 class="modal-title">Добавление нового изображения</h5>
+                                        <button type="button" class="close" data-dismiss="modal">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label for="addPhotoNumber" class="form-label">Позиция для загрузки</label>
+                                            <input type="number" class="form-control custom-input" id="addPhotoNumber" 
+                                                min="1" max="30" value="{{ product_card.photos|length|add:1 }}">
+                                            <small class="form-text text-muted">
+                                                Текущее количество изображений: <strong>{{ product_card.photos|length }}</strong><br>
+                                                Максимум 30 изображений на карточку
+                                            </small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="addFile" class="form-label">Выберите изображение</label>
+                                            <input type="file" class="form-control custom-input" id="addFile" accept="image/*">
+                                            <small class="form-text text-muted">
+                                                Форматы: JPG, PNG, BMP, GIF, WebP (до 32 МБ)<br>
+                                                Минимальное разрешение: 700x900 px
+                                            </small>
+                                        </div>
+                                        <div id="addProgress" style="display: none;">
+                                            <div class="progress">
+                                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                            <small class="text-muted">Загрузка...</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                        <button type="button" class="btn btn-info" onclick="addNewImage()" id="addButton">
+                                            <i class="fa fa-plus me-1"></i> Добавить
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Модальное окно изменения порядка изображений -->
+                        <div class="modal fade" id="reorderModal" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content custom-card">
+                                    <div class="modal-header custom-card-header">
+                                        <h5 class="modal-title">
+                                            <i class="fa fa-arrows me-2"></i> Изменение порядка изображений
+                                        </h5>
+                                        <button type="button" class="close" data-dismiss="modal">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="alert alert-info custom-alert">
+                                            <i class="fa fa-info-circle me-2"></i>
+                                            Перетащите изображения для изменения их порядка. Первое изображение будет основным.
+                                            <br><small>Изменения применяются мгновенно через Wildberries API.</small>
+                                        </div>
+                                        <div id="reorderContainer" class="reorder-container">
+                                            <!-- Миниатюры для перетаскивания будут здесь -->
+                                        </div>
+                                        <div id="reorderProgress" style="display: none;" class="mt-3">
+                                            <div class="progress">
+                                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                            <small class="text-muted">Обновление порядка изображений...</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Отмена</button>
+                                        <button type="button" class="btn btn-success" onclick="saveNewOrder()" id="saveOrderButton">
+                                            <i class="fa fa-save me-1"></i> Сохранить порядок
+                                        </button>
+                                        {% comment %} <button type="button" class="btn btn-warning btn-sm" onclick="debugReorderState()">
+                                            <i class="fa fa-bug me-1"></i> Отладка
+                                        </button> {% endcomment %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12">
+                            <p><strong>Описание:</strong> <span id="viewDescription" class="product-info">{{ product_card.description }}</span></p>
+                        </div>
+
+                        <!-- Характеристики -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6 class="section-title"><i class="fa fa-list me-2"></i>Характеристики</h6>
+                                <div class="characteristics-list custom-scroll">
+                                    <div id="viewCharacteristics">
+                                        {% for char in product_card.characteristics %}
+                                        <div class="characteristic-item">
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <div class="characteristic-key">
+                                                        <span class="fw-bold">{{ char.name }}:</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-8">
+                                                    <div class="characteristic-value">
+                                                        <span style="text-align: right; display: block;">{{ char.value|join:", " }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Размеры -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h6 class="section-title"><i class="fa fa-ruler me-2"></i>Размеры</h6>
+                                <div id="viewSizes">
+                                    {% for size in product_card.sizes %}
+                                    <div class="card mb-2 custom-inner-card">
+                                        <div class="card-body py-2">
+                                            <div class="row">
+                                                <div class="col-md-3"><strong>Размер:</strong> <span class="product-info">{{ size.techSize }}</span></div>
+                                                <div class="col-md-4"><strong>Артикул размера:</strong> <span class="product-info">{{ size.chrtID }}</span></div>
+                                                <div class="col-md-5"><strong>SKU:</strong> <span class="product-info">{{ size.skus|join:", " }}</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Режим редактирования -->
+            <div id="editMode" style="display: none;" class="mt-4">
+                <div class="card custom-card">
+                    <div class="card-header custom-card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fa fa-edit me-2"></i>Редактирование карточки товара</h5>
+                        <button class="btn btn-outline-secondary" onclick="toggleEdit()">
+                            <i class="fa fa-times me-1"></i> Отмена
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <form id="editForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editBrand" class="form-label">Бренд</label>
+                                        <input type="text" class="form-control custom-input" id="editBrand">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="editTitle" class="form-label">Название товара</label>
+                                        <input type="text" class="form-control custom-input" id="editTitle">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="editVendorCode" class="form-label">Артикул продавца</label>
+                                        <input type="text" class="form-control custom-input" id="editVendorCode" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editDescription" class="form-label">Описание</label>
+                                        <textarea class="form-control custom-input" id="editDescription" rows="4"></textarea>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-4">
+                                            <label for="editLength" class="form-label">Длина (см)</label>
+                                            <input type="number" class="form-control custom-input" id="editLength" step="0.1">
+                                        </div>
+                                        <div class="col-4">
+                                            <label for="editWidth" class="form-label">Ширина (см)</label>
+                                            <input type="number" class="form-control custom-input" id="editWidth" step="0.1">
+                                        </div>
+                                        <div class="col-4">
+                                            <label for="editHeight" class="form-label">Высота (см)</label>
+                                            <input type="number" class="form-control custom-input" id="editHeight" step="0.1">
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="editWeight" class="form-label">Вес брутто (кг)</label>
+                                        <input type="number" class="form-control custom-input" id="editWeight" step="0.01">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Характеристики для редактирования -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <h6 class="section-title">Характеристики</h6>
+                                    <div id="editCharacteristics" class="custom-scroll">
+                                        <!-- Динамически заполняется JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Добавить эту кнопку в режим редактирования после характеристик -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <h6 class="section-title"><i class="fa fa-image me-2"></i>Управление изображениями</h6>
+                                    <div class="card custom-inner-card">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="photoNumber" class="form-label">Номер позиции для загрузки</label>
+                                                        <input type="number" class="form-control custom-input" id="photoNumber" min="1" max="30" value="1">
+                                                        <small class="form-text text-muted">Номер позиции (1-30). Для видео всегда указывайте 1.</small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="mediaFile" class="form-label">Выберите файл</label>
+                                                        <input type="file" class="form-control custom-input" id="mediaFile" accept="image/*,video/*">
+                                                        <small class="form-text text-muted">
+                                                            Изображения: JPG, PNG, BMP, GIF, WebP (до 32 МБ)<br>
+                                                            Видео: MP4, MOV (до 50 МБ)
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-info" onclick="uploadMediaFile()">
+                                                <i class="fa fa-upload me-1"></i> Загрузить файл
+                                            </button>
+                                            <div id="uploadProgress" class="mt-2" style="display: none;">
+                                                <div class="progress">
+                                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" 
+                                                        style="width: 0%"></div>
+                                                </div>
+                                                <small class="text-muted">Загрузка...</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Размеры для редактирования -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <h6 class="section-title">Размеры</h6>
+                                    <div id="editSizes" class="custom-scroll">
+                                        <!-- Динамически заполняется JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fa fa-save me-1"></i> Сохранить изменения
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="toggleEdit()">
+                                    <i class="fa fa-times me-1"></i> Отмена
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для уведомлений -->
+<div class="modal fade" id="notificationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content custom-card">
+            <div class="modal-header custom-card-header">
+                <h5 class="modal-title">Уведомление</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="notificationMessage">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary custom-btn" data-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Основные стили в соответствии с вашим сайтом */
+    .custom-card {
+        background-color: white;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+
+    .custom-card-header {
+        background: linear-gradient(135deg, #e3f2fd 0%, #c0d6ff 100%) !important;
+        color: #000000 !important;
+        border-bottom: 2px solid #c0d6ff;
+        padding: 1rem 1.5rem;
+    }
+
+    .custom-btn {
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        font-family: Ranga;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .custom-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .custom-input {
+        border-radius: 8px;
+        border: 2px solid #e3f2fd;
+        transition: all 0.3s ease;
+    }
+
+    .custom-input:focus {
+        border-color: #c0d6ff;
+        box-shadow: 0 0 0 0.2rem rgba(192, 214, 255, 0.25);
+    }
+
+    .custom-border {
+        border: 2px solid #e3f2fd !important;
+        border-radius: 8px;
+    }
+
+    .custom-alert {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .custom-inner-card {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e3f2fd;
+    }
+
+    .custom-scroll {
+        max-height: 300px;
+        overflow-y: auto;
+        border-radius: 8px;
+        padding: 10px;
+        background-color: #f8f9fa;
+    }
+
+    /* Воронка изображений */
+    .image-funnel {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: flex-start;
+    }
+
+    .main-image {
+        flex: 1;
+        max-width: 400px;
+        min-height: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .main-image img {
+        max-height: 400px;
+        width: 100%;
+        object-fit: contain;
+    }
+
+    .thumbnails {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 5px;
+    }
+
+    .thumbnail {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+    }
+
+    .thumbnail:hover {
+        border-color: #c0d6ff;
+        transform: scale(1.05);
+    }
+
+    .thumbnail.active {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+    }
+
+    /* Стили для контента */
+    .section-title {
+        color: #000000;
+        font-family: Ranga;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e3f2fd;
+    }
+
+    .product-info {
+        background-color: #f8f9fa;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: inherit;
+    }
+
+    .characteristic-item {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e3f2fd;
+        transition: background-color 0.3s ease;
+        margin-bottom: 4px;
+    }
+
+    .characteristic-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .characteristic-item:last-child {
+        border-bottom: none;
+    }
+
+    .characteristic-key {
+        padding: 4px 8px;
+        background-color: #e3f2fd;
+        border-radius: 6px;
+        text-align: left;
+    }
+
+    .characteristic-value {
+        padding: 4px 8px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        text-align: left;
+        word-break: break-word;
+    }
+
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .image-funnel {
+            flex-direction: column;
+        }
+        
+        .thumbnails {
+            flex-direction: row;
+            max-height: 100px;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+        
+        .main-image {
+            min-height: 300px;
+        }
+        
+        .main-image img {
+            max-height: 300px;
+        }
+        
+        .main-image-controls .btn {
+            font-size: 12px;
+            padding: 6px 10px;
+        }
+
+        .characteristic-item .row {
+            flex-direction: column;
+        }
+        
+        .characteristic-item .col-md-4,
+        .characteristic-item .col-md-8 {
+            width: 100%;
+            max-width: 100%;
+            flex: 0 0 100%;
+        }
+        
+        .characteristic-key {
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        
+        .characteristic-value {
+            text-align: center;
+        }
+    }
+
+    /* Стили для скроллбара */
+    .custom-scroll::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb {
+        background: #c0d6ff;
+        border-radius: 4px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+        background: #a0c0ff;
+    }
+
+    .thumbnail-container {
+        position: relative;
+        display: inline-block;
+    }
+
+    .thumbnail-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        border-radius: 6px;
+    }
+
+    .thumbnail-container:hover .thumbnail-overlay {
+        opacity: 1;
+    }
+
+    .thumbnail-overlay .btn {
+        padding: 2px 6px;
+        font-size: 10px;
+    }
+
+    .image-controls {
+        text-align: center;
+    }
+
+    .image-controls .btn {
+        margin: 0 2px;
+        font-size: 12px;
+        padding: 4px 8px;
+    }
+
+    /* Стили для воронки изображений */
+    .main-image-container {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .main-image-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        border-radius: 8px;
+    }
+
+    .main-image-container:hover .main-image-overlay {
+        opacity: 1;
+    }
+
+    .main-image-controls {
+        text-align: center;
+    }
+
+    .main-image-controls .btn {
+        margin: 5px;
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+
+    .main-image-info {
+        font-family: Ranga;
+        font-size: 14px;
+    }
+
+    .current-image-preview {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    /* Стили для перетаскивания изображений */
+    .reorder-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        min-height: 200px;
+    }
+
+    .reorder-item {
+        position: relative;
+        cursor: grab;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .reorder-item:hover {
+        transform: scale(1.05);
+        border-color: #c0d6ff;
+    }
+
+    .reorder-item.dragging {
+        opacity: 0.7;
+        transform: scale(1.1);
+        border-color: #007bff;
+        cursor: grabbing;
+        z-index: 1000;
+    }
+
+    .reorder-item.drag-over {
+        border-color: #28a745 !important;
+        background-color: #e8f5e8;
+    }
+
+    .reorder-item img {
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 6px;
+    }
+
+    .reorder-position {
+        position: absolute;
+        top: 5px;
+        left: 5px;
+        background: rgba(0, 123, 255, 0.9);
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .reorder-item.dragging .reorder-position {
+        background: rgba(255, 193, 7, 0.9);
+    }
+
+    /* Стили для миниатюр при перетаскивании */
+    .thumbnail.draggable {
+        cursor: grab;
+    }
+
+    .thumbnail.draggable:active {
+        cursor: grabbing;
+    }
+
+    .thumbnail.drag-over {
+        border-color: #007bff !important;
+        background-color: #e3f2fd;
+    }
+</style>
+
+{% if product_card %}
+<script>
+    let productData = {{ product_data_json|safe }};
+    let isEditing = false;
+    let currentImageIndex = 0;
+    let currentImageCount = {{ product_card.photos|length|default:0 }};
+
+    // Инициализация воронки изображений
+    $(document).ready(function() {
+        if ($('#firstThumbnail').length) {
+            const firstThumbnail = $('#firstThumbnail')[0];
+            // Используем поиск по позиции для инициализации
+            const index = $('.thumbnail').index(firstThumbnail);
+            console.log('Initializing first thumbnail with index:', index);
+            selectImage($('#firstThumbnail').attr('src'), firstThumbnail);
+        }
+        
+        // Обновляем максимальное значение для добавления изображений
+        $('#addPhotoNumber').attr('max', Math.min(30, currentImageCount + 1));
+        
+        // Устанавливаем начальную информацию об изображении
+        if (currentImageCount > 0) {
+            $('#currentImageInfo').text(`Изображение 1 из ${currentImageCount}`);
+        } else {
+            $('#currentImageInfo').text('Нет изображений');
+        }
+    });
+
+    // Выбор изображения из миниатюр
+    function selectImage(src, element) {
+        // Получаем индекс по позиции элемента среди миниатюр
+        const thumbnails = $('.thumbnail');
+        const index = thumbnails.index(element);
+        
+        console.log('Selecting image by position:', index, 'Total images:', currentImageCount);
+        
+        $('#mainImage').attr('src', src);
+        // Убираем активный класс у всех миниатюр
+        thumbnails.removeClass('active');
+        // Добавляем активный класс к выбранной миниатюре
+        $(element).addClass('active');
+        
+        // Обновляем информацию о текущем изображении
+        currentImageIndex = index;
+        $('#currentImageInfo').text(`Изображение ${index + 1} из ${currentImageCount}`);
+        
+        console.log('Current image index:', currentImageIndex);
+    }
+
+    // Открытие модального окна замены
+    function openReplaceModal() {
+        // Устанавливаем текущую позицию
+        $('#currentPosition').text(currentImageIndex + 1);
+        
+        // Показываем превью текущего изображения
+        $('#replacePreview').attr('src', $('#mainImage').attr('src'));
+        
+        // Сбрасываем поле выбора файла
+        $('#replaceFile').val('');
+        $('#replaceProgress').hide();
+        $('#replaceButton').prop('disabled', false);
+        
+        $('#replaceImageModal').modal('show');
+    }
+
+    // Открытие модального окна добавления
+    function openAddModal() {
+        // Устанавливаем следующую доступную позицию
+        const nextPosition = currentImageCount + 1;
+        $('#addPhotoNumber').val(nextPosition);
+        $('#addPhotoNumber').attr('max', Math.min(30, nextPosition));
+        
+        // Сбрасываем поле выбора файла
+        $('#addFile').val('');
+        $('#addProgress').hide();
+        $('#addButton').prop('disabled', false);
+        
+        $('#addImageModal').modal('show');
+    }
+
+    // Замена текущего изображения
+    function replaceCurrentImage() {
+        const fileInput = document.getElementById('replaceFile');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            showNotification('Пожалуйста, выберите файл для замены', 'error');
+            return;
+        }
+        
+        // Проверка размера файла
+        if (file.size > 32 * 1024 * 1024) {
+            showNotification('Размер файла превышает 32 МБ', 'error');
+            return;
+        }
+        
+        // Проверка типа файла
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/bmp', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            showNotification('Неподдерживаемый формат изображения', 'error');
+            return;
+        }
+        
+        // Показываем индикатор прогресса
+        const progressDiv = $('#replaceProgress');
+        const progressBar = $('.progress-bar', progressDiv);
+        progressDiv.show();
+        progressBar.css('width', '0%');
+        $('#replaceButton').prop('disabled', true);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('nmID', productData.nmID);
+        formData.append('photoNumber', currentImageIndex + 1); // +1 потому что API начинает с 1
+        formData.append('cabinet', '{{ cabinet }}');
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        uploadMediaFile(formData, progressBar, function(response) {
+            $('#replaceImageModal').modal('hide');
+            if (response.success) {
+                showNotification('Изображение успешно заменено!', 'success');
+                // Обновляем данные карточки
+                setTimeout(refreshProductData, 2000);
+            } else {
+                showNotification('Ошибка замены: ' + response.message, 'error');
+                $('#replaceButton').prop('disabled', false);
+            }
+        }, function(error) {
+            $('#replaceImageModal').modal('hide');
+            showNotification('Ошибка загрузки: ' + error, 'error');
+            $('#replaceButton').prop('disabled', false);
+        });
+    }
+
+    // Добавление нового изображения
+    function addNewImage() {
+        const fileInput = document.getElementById('addFile');
+        const photoNumber = document.getElementById('addPhotoNumber').value;
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            showNotification('Пожалуйста, выберите файл для добавления', 'error');
+            return;
+        }
+        
+        if (!photoNumber || photoNumber < 1 || photoNumber > 30) {
+            showNotification('Номер позиции должен быть от 1 до 30', 'error');
+            return;
+        }
+        
+        if (photoNumber > currentImageCount + 1) {
+            showNotification(`Можно добавить только в позицию ${currentImageCount + 1} (следующую доступную)`, 'error');
+            return;
+        }
+        
+        // Проверка размера файла
+        if (file.size > 32 * 1024 * 1024) {
+            showNotification('Размер файла превышает 32 МБ', 'error');
+            return;
+        }
+        
+        // Проверка типа файла
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/bmp', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            showNotification('Неподдерживаемый формат изображения', 'error');
+            return;
+        }
+        
+        // Показываем индикатор прогресса
+        const progressDiv = $('#addProgress');
+        const progressBar = $('.progress-bar', progressDiv);
+        progressDiv.show();
+        progressBar.css('width', '0%');
+        $('#addButton').prop('disabled', true);
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('nmID', productData.nmID);
+        formData.append('photoNumber', photoNumber);
+        formData.append('cabinet', '{{ cabinet }}');
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        uploadMediaFile(formData, progressBar, function(response) {
+            $('#addImageModal').modal('hide');
+            if (response.success) {
+                showNotification('Изображение успешно добавлено!', 'success');
+                // Обновляем данные карточки
+                setTimeout(refreshProductData, 2000);
+            } else {
+                showNotification('Ошибка добавления: ' + response.message, 'error');
+                $('#addButton').prop('disabled', false);
+            }
+        }, function(error) {
+            $('#addImageModal').modal('hide');
+            showNotification('Ошибка загрузки: ' + error, 'error');
+            $('#addButton').prop('disabled', false);
+        });
+    }
+
+    // Общая функция загрузки файла
+    function uploadMediaFile(formData, progressBar, onSuccess, onError) {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                progressBar.css('width', percentComplete + '%');
+            }
+        });
+        
+        xhr.addEventListener('load', function() {
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                onSuccess(response);
+            } else {
+                onError('Ошибка сети: ' + xhr.status);
+            }
+        });
+        
+        xhr.addEventListener('error', function() {
+            onError('Ошибка сети при загрузке файла');
+        });
+        
+        // Исправьте URL - добавьте префикс /product_cards/
+        xhr.open('POST', '/product_cards/upload_media_file/');
+        xhr.send(formData);
+    }
+
+    // Улучшенная функция обновления данных карточки
+    function refreshProductData() {
+        showNotification('Обновление данных карточки...', 'info');
+        
+        // Создаем форму для повторного поиска товара
+        const formData = new FormData();
+        formData.append('article', productData.nmID.toString());
+        formData.append('cabinet', '{{ cabinet }}');
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        fetch('/product_cards/product_cards/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                showNotification('Данные карточки обновлены. Страница будет перезагружена.', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                throw new Error('Ошибка при обновлении данных: ' + response.status);
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка при обновлении:', error);
+            showNotification('Ошибка при обновлении данных: ' + error.message, 'error');
+            // В случае ошибки все равно перезагружаем страницу через некоторое время
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        });
+    }
+
+    // Остальные функции (toggleEdit, populateEditForm, updateViewMode и т.д.) остаются без изменений
+    function toggleEdit() {
+        isEditing = !isEditing;
+        
+        if (isEditing) {
+            $('#viewMode').hide();
+            $('#editMode').show();
+            populateEditForm();
+        } else {
+            $('#viewMode').show();
+            $('#editMode').hide();
+        }
+    }
+
+    function populateEditForm() {
+        // Основные поля
+        $('#editBrand').val(productData.brand || '');
+        $('#editTitle').val(productData.title || '');
+        $('#editVendorCode').val(productData.vendorCode || '');
+        $('#editDescription').val(productData.description || '');
+        
+        // Габариты
+        if (productData.dimensions) {
+            $('#editLength').val(productData.dimensions.length || '');
+            $('#editWidth').val(productData.dimensions.width || '');
+            $('#editHeight').val(productData.dimensions.height || '');
+            $('#editWeight').val(productData.dimensions.weightBrutto || '');
+        }
+
+        // Характеристики
+        const characteristicsContainer = $('#editCharacteristics');
+        characteristicsContainer.empty();
+        
+        if (productData.characteristics && productData.characteristics.length > 0) {
+            productData.characteristics.forEach((char, index) => {
+                const charDiv = $(`
+                    <div class="row mb-2">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control custom-input mb-1" value="${char.name || ''}" 
+                                onchange="updateCharacteristic(${index}, 'name', this.value)" 
+                                placeholder="Название характеристики">
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" class="form-control custom-input mb-1" value="${Array.isArray(char.value) ? char.value.join(', ') : char.value}" 
+                                onchange="updateCharacteristic(${index}, 'value', this.value.split(',').map(v => v.trim()))" 
+                                placeholder="Значения (через запятую)">
+                        </div>
+                    </div>
+                `);
+                characteristicsContainer.append(charDiv);
+            });
+        }
+
+        // Размеры
+        const sizesContainer = $('#editSizes');
+        sizesContainer.empty();
+        
+        if (productData.sizes && productData.sizes.length > 0) {
+            productData.sizes.forEach((size, index) => {
+                const sizeDiv = $(`
+                    <div class="card mb-2 custom-inner-card">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label class="form-label">Тех. размер</label>
+                                    <input type="text" class="form-control custom-input mb-1" value="${size.techSize || ''}" 
+                                        onchange="updateSize(${index}, 'techSize', this.value)">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Артикул размера</label>
+                                    <input type="text" class="form-control custom-input mb-1" value="${size.chrtID || ''}" 
+                                        onchange="updateSize(${index}, 'chrtID', this.value)">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">SKU</label>
+                                    <input type="text" class="form-control custom-input mb-1" value="${Array.isArray(size.skus) ? size.skus.join(', ') : size.skus}" 
+                                        onchange="updateSize(${index}, 'skus', this.value.split(',').map(v => v.trim()))">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `);
+                sizesContainer.append(sizeDiv);
+            });
+        }
+    }
+
+    function updateCharacteristic(index, field, value) {
+        if (!productData.characteristics[index]) {
+            productData.characteristics[index] = {};
+        }
+        productData.characteristics[index][field] = value;
+    }
+
+    function updateSize(index, field, value) {
+        if (!productData.sizes[index]) {
+            productData.sizes[index] = {};
+        }
+        productData.sizes[index][field] = value;
+    }
+
+    // Обработка сохранения формы
+    $('#editForm').on('submit', async function(e) {
+        e.preventDefault();
+        
+        // Собираем обновленные данные
+        const updateData = {
+            nmID: productData.nmID,
+            vendorCode: $('#editVendorCode').val(),
+            brand: $('#editBrand').val(),
+            title: $('#editTitle').val(),
+            description: $('#editDescription').val(),
+            dimensions: {
+                length: parseFloat($('#editLength').val()) || 0,
+                width: parseFloat($('#editWidth').val()) || 0,
+                height: parseFloat($('#editHeight').val()) || 0,
+                weightBrutto: parseFloat($('#editWeight').val()) || 0
+            },
+            characteristics: productData.characteristics,
+            sizes: productData.sizes,
+            cabinet: '{{ form.cabinet.value }}'
+        };
+
+        try {
+            // Исправьте URL - добавьте префикс /product_cards/
+            const response = await fetch('/product_cards/update_product_card/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(updateData)
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Карточка товара успешно обновлена!', 'success');
+                // Обновляем данные для отображения
+                Object.assign(productData, updateData);
+                updateViewMode();
+                toggleEdit();
+            } else {
+                showNotification('Ошибка при обновлении: ' + result.message, 'error');
+            }
+        } catch (error) {
+            showNotification('Ошибка сети: ' + error.message, 'error');
+        }
+    });
+
+    function updateViewMode() {
+        // Обновляем отображение в режиме просмотра
+        $('#viewBrand').text(productData.brand);
+        $('#viewTitle').text(productData.title);
+        $('#viewVendorCode').text(productData.vendorCode);
+        $('#viewDescription').text(productData.description);
+        
+        if (productData.dimensions) {
+            $('#viewDimensions').text(
+                `${productData.dimensions.length} × ${productData.dimensions.width} × ${productData.dimensions.height} см`
+            );
+            $('#viewWeight').text(productData.dimensions.weightBrutto + ' кг');
+        }
+
+        // Обновляем характеристики
+        const viewChars = $('#viewCharacteristics');
+        viewChars.empty();
+        if (productData.characteristics) {
+            productData.characteristics.forEach(char => {
+                const charDiv = $(`
+                    <div class="d-flex justify-content-between border-bottom py-1 characteristic-item">
+                        <span class="fw-bold">${char.name || 'Характеристика'}:</span>
+                        <span>${Array.isArray(char.value) ? char.value.join(', ') : char.value}</span>
+                    </div>
+                `);
+                viewChars.append(charDiv);
+            });
+        }
+
+        // Обновляем размеры
+        const viewSizes = $('#viewSizes');
+        viewSizes.empty();
+        if (productData.sizes) {
+            productData.sizes.forEach(size => {
+                const sizeDiv = $(`
+                    <div class="card mb-2 custom-inner-card">
+                        <div class="card-body py-2">
+                            <div class="row">
+                                <div class="col-md-3"><strong>Размер:</strong> <span class="product-info">${size.techSize || ''}</span></div>
+                                <div class="col-md-3"><strong>Артикул размера:</strong> <span class="product-info">${size.chrtID || ''}</span></div>
+                                <div class="col-md-6"><strong>SKU:</strong> <span class="product-info">${Array.isArray(size.skus) ? size.skus.join(', ') : size.skus}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                `);
+                viewSizes.append(sizeDiv);
+            });
+        }
+    }
+
+    function showNotification(message, type) {
+        const modal = new bootstrap.Modal($('#notificationModal')[0]);
+        const messageElement = $('#notificationMessage');
+        
+        messageElement.text(message);
+        messageElement.removeClass('text-danger text-success');
+        if (type === 'error') {
+            messageElement.addClass('text-danger');
+        } else if (type === 'success') {
+            messageElement.addClass('text-success');
+        }
+        
+        modal.show();
+    }
+
+    // Переменные для управления перетаскиванием
+    let isReorderMode = false;
+    let dragSrcElement = null;
+
+    // Включение режима изменения порядка
+    function enableReorderMode() {
+        $('#reorderModal').modal('show');
+        populateReorderContainer();
+    }
+
+    // В функции populateReorderContainer добавьте проверку
+    function populateReorderContainer() {
+        const container = $('#reorderContainer');
+        container.empty();
+        
+        const thumbnails = $('.thumbnail');
+        console.log('Найдено миниатюр:', thumbnails.length);
+        
+        thumbnails.each(function(index) {
+            const src = $(this).attr('src');
+            
+            const reorderItem = $(`
+                <div class="reorder-item" draggable="true" data-index="${index}">
+                    <img src="${src}" alt="Изображение ${index + 1}">
+                    <div class="reorder-position">${index + 1}</div>
+                </div>
+            `);
+            
+            // Добавляем обработчики событий перетаскивания
+            reorderItem.on('dragstart', handleDragStart);
+            reorderItem.on('dragover', handleDragOver);
+            reorderItem.on('dragenter', handleDragEnter);
+            reorderItem.on('dragleave', handleDragLeave);
+            reorderItem.on('drop', handleDrop);
+            reorderItem.on('dragend', handleDragEnd);
+            
+            container.append(reorderItem);
+        });
+        
+        console.log('Загружено изображений для переупорядочивания:', thumbnails.length);
+        debugReorderState(); // Показываем начальное состояние
+    }
+
+    // Обработчики событий перетаскивания
+    function handleDragStart(e) {
+        dragSrcElement = this;
+        e.originalEvent.dataTransfer.effectAllowed = 'move';
+        e.originalEvent.dataTransfer.setData('text/html', this.outerHTML);
+        
+        $(this).addClass('dragging');
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) {
+            e.preventDefault();
+        }
+        e.originalEvent.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleDragEnter(e) {
+        $(this).addClass('drag-over');
+    }
+
+    function handleDragLeave(e) {
+        $(this).removeClass('drag-over');
+    }
+
+    function handleDrop(e) {
+        if (e.stopPropagation) {
+            e.stopPropagation();
+        }
+        
+        e.preventDefault();
+        
+        if (dragSrcElement !== this) {
+            const $dragSrc = $(dragSrcElement);
+            const $dropTarget = $(this);
+            
+            const srcIndex = parseInt($dragSrc.data('index'));
+            const destIndex = parseInt($dropTarget.data('index'));
+            
+            console.log(`Перемещение элемента с ${srcIndex} на ${destIndex}`);
+            
+            if (srcIndex === destIndex) {
+                console.log('Элемент перемещен на ту же позицию');
+                return false;
+            }
+            
+            // ПРОСТОЙ И ЭФФЕКТИВНЫЙ ПОДХОД:
+            // Если перетаскиваемый элемент идет после целевого - вставляем перед
+            // Если перетаскиваемый элемент идет перед целевым - вставляем после
+            if (srcIndex < destIndex) {
+                $dropTarget.after($dragSrc);
+            } else {
+                $dropTarget.before($dragSrc);
+            }
+            
+            // ОБНОВЛЯЕМ ВСЕ ИНДЕКСЫ после перемещения
+            updateAllReorderIndexes();
+            
+            console.log('Новый порядок установлен');
+        }
+        
+        $(this).removeClass('drag-over');
+        return false;
+    }
+
+    // Функция для обновления всех индексов после перемещения
+    function updateAllReorderIndexes() {
+        $('#reorderContainer .reorder-item').each(function(index) {
+            const $item = $(this);
+            $item.attr('data-index', index); // ОБНОВЛЯЕМ data-index!
+            $item.find('.reorder-position').text(index + 1);
+        });
+        
+        console.log('Все индексы обновлены');
+        debugReorderState(); // Показываем новое состояние для отладки
+    }
+
+    // Функция для отладки - показывает текущее состояние элементов
+    function debugReorderState() {
+        const currentState = [];
+        $('#reorderContainer .reorder-item').each(function(index) {
+            const oldIndex = parseInt($(this).data('index'));
+            currentState.push({
+                position: index,
+                oldIndex: oldIndex,
+                element: this
+            });
+        });
+        console.log('Текущее состояние переупорядочивания:', currentState);
+        
+        // Дополнительно выводим массив для отправки
+        const newOrder = [];
+        $('#reorderContainer .reorder-item').each(function(index) {
+            const oldIndex = parseInt($(this).data('index'));
+            newOrder.push({
+                oldIndex: oldIndex,
+                newIndex: index
+            });
+        });
+        console.log('Массив для отправки:', newOrder);
+    }
+
+    function handleDragEnd(e) {
+        $('.reorder-item').removeClass('dragging drag-over');
+    }
+
+    // Функция для повторного прикрепления обработчиков событий
+    function reattachEventHandlers() {
+        $('#reorderContainer .reorder-item').each(function() {
+            const $item = $(this);
+            // Удаляем старые обработчики и добавляем новые
+            $item.off('dragstart dragover dragenter dragleave drop dragend')
+                .on('dragstart', handleDragStart)
+                .on('dragover', handleDragOver)
+                .on('dragenter', handleDragEnter)
+                .on('dragleave', handleDragLeave)
+                .on('drop', handleDrop)
+                .on('dragend', handleDragEnd);
+        });
+    }
+
+    // Обновление номеров позиций после перетаскивания
+    function updateReorderPositions() {
+        $('#reorderContainer .reorder-item').each(function(index) {
+            const position = index + 1;
+            $(this).find('.reorder-position').text(position);
+            $(this).attr('data-index', index);
+        });
+    }
+
+    // Сохранение нового порядка через метод save по ссылкам
+    function saveNewOrder() {
+        const newOrder = [];
+        const usedIndices = new Set();
+        let hasDuplicates = false;
+        
+        $('#reorderContainer .reorder-item').each(function(index) {
+            const oldIndex = parseInt($(this).data('index'));
+            
+            // Проверяем на дубликаты
+            if (usedIndices.has(oldIndex)) {
+                console.error(`Обнаружен дубликат индекса: ${oldIndex} на позиции ${index}`);
+                hasDuplicates = true;
+            }
+            usedIndices.add(oldIndex);
+            
+            newOrder.push({
+                oldIndex: oldIndex,
+                newIndex: index
+            });
+        });
+        
+        // ВЫВОДИМ ПОЛНОЕ СОДЕРЖИМОЕ МАССИВА
+        console.log('Сформированный порядок:', JSON.parse(JSON.stringify(newOrder)));
+        
+        // Если есть дубликаты, показываем ошибку
+        if (hasDuplicates) {
+            showNotification('Обнаружены дублирующиеся изображения. Пожалуйста, попробуйте еще раз.', 'error');
+            return;
+        }
+        
+        // УЛУЧШЕННАЯ ПРОВЕРКА ИЗМЕНЕНИЙ
+        const hasChanges = newOrder.some((item, index) => {
+            // Если старый индекс не равен новой позиции - есть изменения
+            const hasChange = item.oldIndex !== index;
+            if (hasChange) {
+                console.log(`Обнаружено изменение: позиция ${index}, было ${item.oldIndex}, стало ${index}`);
+            }
+            return hasChange;
+        });
+        
+        console.log('Есть изменения в порядке:', hasChanges);
+        
+        if (!hasChanges) {
+            showNotification('Порядок изображений не изменился', 'info');
+            $('#reorderModal').modal('hide');
+            return;
+        }
+        
+        const progressDiv = $('#reorderProgress');
+        const progressBar = $('.progress-bar', progressDiv);
+        const saveButton = $('#saveOrderButton');
+        
+        progressDiv.show();
+        progressBar.css('width', '0%');
+        saveButton.prop('disabled', true);
+        
+        // Создаем FormData для отправки
+        const formData = new FormData();
+        formData.append('nmID', productData.nmID);
+        formData.append('cabinet', '{{ cabinet }}');
+        formData.append('newOrder', JSON.stringify(newOrder));
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        // Отправляем запрос на сервер
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                progressBar.css('width', percentComplete + '%');
+            }
+        });
+        
+        xhr.addEventListener('load', function() {
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                if (response.success) {
+                    showNotification(response.message || 'Порядок изображений успешно обновлен!', 'success');
+                    $('#reorderModal').modal('hide');
+                    // Обновляем данные карточки
+                    setTimeout(refreshProductData, 2000);
+                } else {
+                    showNotification(response.message || 'Ошибка обновления порядка', 'error');
+                    saveButton.prop('disabled', false);
+                }
+            } else {
+                showNotification('Ошибка сети: ' + xhr.status, 'error');
+                saveButton.prop('disabled', false);
+            }
+            progressDiv.hide();
+        });
+        
+        xhr.addEventListener('error', function() {
+            showNotification('Ошибка сети при обновлении порядка', 'error');
+            progressDiv.hide();
+            saveButton.prop('disabled', false);
+        });
+        
+        xhr.open('POST', '/product_cards/reorder_images/');
+        xhr.send(formData);
+    }
+</script>
+{% endif %}
+{% endblock %}
