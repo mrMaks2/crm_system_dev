@@ -6,6 +6,6 @@ app = Celery('crm_project')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 app.conf.update(
-    timezone='UTC',
+    timezone='Europe/Moscow',
     enable_utc=True,
 )

@@ -31,160 +31,170 @@ url_info_campaign_stats = 'https://advert-api.wildberries.ru/adv/v3/fullstats' #
 url_create_report = 'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads' # POST
 url_orders = 'https://statistics-api.wildberries.ru/api/v1/supplier/orders' # GET
 
-# @shared_task
+@shared_task
 def get_and_save_advertisings_stats():
 
     for jwt_advertisings in jwts_advertisings:
 
-        headers_advertisings = {
-            'Authorization':jwt_advertisings
-        }
+        try:
 
-        cab_num = jwts_advertisings.index(jwt_advertisings) + 1
-
-        random_uuid = uuid.uuid4()
-        uuid_string = str(random_uuid)
-        search_advertIds = []
-        rack_advertIds = []
-
-        today = datetime.date.today()
-        yesterday = today - datetime.timedelta(days=1)
-
-        date_start_str = yesterday.strftime('%Y-%m-%d')
-        date_end_str = yesterday.strftime('%Y-%m-%d')
-
-        orders_data = get_orders_data(date_start_str, headers_advertisings)
-        avg_spp_by_date_article = calculate_avg_spp(orders_data)
-
-        all_campaigns_response = requests.get(url_all_campaigns, headers=headers_advertisings)
-        if all_campaigns_response.status_code != 200:
-            logger.info(f"Статус ошибки: {all_campaigns_response.status_code}")
-            return None
-        all_campaigns_list = all_campaigns_response.json().get('adverts', [])
-
-        for active_campaign in all_campaigns_list:
-            if active_campaign['status'] == 9:
-                if active_campaign['type'] == 9: # Поисковые кампании
-                    for ids in active_campaign['advert_list']:
-                        search_advertIds.append(ids['advertId'])
-                elif active_campaign['type'] == 8: # Кампании на полке
-                    for ids in active_campaign['advert_list']:
-                        rack_advertIds.append(ids['advertId'])
-
-        id_list = []
-
-        for advert_id in search_advertIds:
-            id_list.append(str(advert_id))
-        
-        for advert_id in rack_advertIds:
-            id_list.append(str(advert_id))
-
-        response = []
-
-        for i in range(0, len(id_list), 100):
-
-            batch = id_list[i:i+100]
-
-            params_stats_response = {
-                "ids": ','.join(batch),
-                "beginDate": date_start_str,
-                "endDate": date_end_str
+            headers_advertisings = {
+                'Authorization':jwt_advertisings
             }
-            
-            results = requests.get(url_info_campaign_stats, headers=headers_advertisings, params=params_stats_response)
-            time.sleep(60)
-            
-            if results.status_code == 200:
-                response.extend(results.json())
-            else:
-                logger.warning(f'Ошибка №{results.status_code} при получении статистики: {results.json()}')
+
+            cab_num = jwts_advertisings.index(jwt_advertisings) + 1
+
+            random_uuid = uuid.uuid4()
+            uuid_string = str(random_uuid)
+            search_advertIds = []
+            rack_advertIds = []
+
+            today = datetime.date.today()
+            yesterday = today - datetime.timedelta(days=1)
+
+            date_start_str = yesterday.strftime('%Y-%m-%d')
+            date_end_str = yesterday.strftime('%Y-%m-%d')
+
+            orders_data = get_orders_data(date_start_str, headers_advertisings)
+            avg_spp_by_date_article = calculate_avg_spp(orders_data)
+
+            all_campaigns_response = requests.get(url_all_campaigns, headers=headers_advertisings)
+            if all_campaigns_response.status_code != 200:
+                logger.info(f"Статус ошибки: {all_campaigns_response.status_code}")
                 return None
+            all_campaigns_list = all_campaigns_response.json().get('adverts', [])
 
-        search_campaign = []
-        if search_advertIds:
-            search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds)
+            for active_campaign in all_campaigns_list:
+                if active_campaign['status'] == 9:
+                    if active_campaign['type'] == 9: # Поисковые кампании
+                        for ids in active_campaign['advert_list']:
+                            search_advertIds.append(ids['advertId'])
+                    elif active_campaign['type'] == 8: # Кампании на полке
+                        for ids in active_campaign['advert_list']:
+                            rack_advertIds.append(ids['advertId'])
 
-        rack_campaign = []
-        if rack_advertIds:
-            rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds)
+            id_list = []
 
-        # Собираем все артикулы для связи
-        all_articles = set()
-        article_advert_map = {}  # Маппинг артикул -> advertId
-        
-        for camp in search_campaign:
-            if 'unitedParams' in camp and camp['unitedParams']:
-                article_num = camp['unitedParams'][0]['nms'][0]
-                all_articles.add(article_num)
-                article_advert_map[camp['advertId']] = article_num
-        
-        for camp in rack_campaign:
-            if 'autoParams' in camp:
-                article_num = camp['autoParams']['nms'][0]
-                all_articles.add(article_num)
-                article_advert_map[camp['advertId']] = article_num
+            for advert_id in search_advertIds:
+                id_list.append(str(advert_id))
+            
+            for advert_id in rack_advertIds:
+                id_list.append(str(advert_id))
 
-        for resp in response:
-            advert_id = resp['advertId']
-            if advert_id in article_advert_map:
-                resp['article_number'] = article_advert_map[advert_id]
+            response = []
 
-        params_for_creaete_report = {
-                "id": uuid_string,
-                "reportType": "DETAIL_HISTORY_REPORT",
-                "userReportName": "Card report",
-                "params": {
-                    "nmIDs": [],
-                    "startDate": date_start_str,
-                    "endDate": date_end_str,
-                    "timezone": "Europe/Moscow",
-                    "aggregationLevel": "day",
-                    "skipDeletedNm": False
-                    }
-            }
-        
-        create_response = requests.post(url_create_report, headers=headers_advertisings, json=params_for_creaete_report)
-        if create_response.status_code != 200:
-            logger.warning(f"Ошибка при создании отчета: {create_response.status_code}")
-            logger.warning(f"Детали ошибки: {create_response.json().get('detail', 'Неизвестная ошибка')}")
-            return None
-        
-        time.sleep(10)
+            for i in range(0, len(id_list), 100):
 
-        url_get_report = f'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads/file/{uuid_string}' # GET
-        response_report = requests.get(url_get_report, headers=headers_advertisings)
-        if response_report.status_code != 200:
-            logger.warning(f"Ошибка при получении отчета: {response_report.status_code}")
-            logger.warning(f"Детали ошибки: {response_report.json().get('detail', 'Неизвестная ошибка')}")
-            report_json = None
-        else:
-            report_json = process_zip_report(response=response_report)
-            logger.info(f"Данные отчета: {report_json[:1] if report_json else 'None'}")
+                batch = id_list[i:i+100]
 
-        processed_data = process_api_data(
-            response=response, 
-            search_advertId=search_advertIds, 
-            rack_advertId=rack_advertIds,
-            report_data=report_json,
-            all_articles=list(all_articles)
-        )
+                params_stats_response = {
+                    "ids": ','.join(batch),
+                    "beginDate": date_start_str,
+                    "endDate": date_end_str
+                }
+                
+                results = requests.get(url_info_campaign_stats, headers=headers_advertisings, params=params_stats_response)
+                time.sleep(60)
+                
+                if results.status_code == 200:
+                    response.extend(results.json())
+                else:
+                    logger.warning(f'Ошибка №{results.status_code} при получении статистики кабинета №{cab_num}: {results.json()}')
+                    return None
 
-        processed_data['response'] = response
-        processed_data['report_data'] = report_json
-        processed_data['search_advertId'] = search_advertIds
-        processed_data['rack_advertId'] = rack_advertIds
+            search_campaign = []
+            if search_advertIds:
+                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds)
 
-        processed_data_with_spp = add_spp_to_processed_data(processed_data, avg_spp_by_date_article)
+            rack_campaign = []
+            if rack_advertIds:
+                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds)
 
-        # Сохраняем данные в модель Statics для всех дат
-        save_to_statics_model(processed_data_with_spp, avg_spp_by_date_article, cab_num)
+            # Собираем все артикулы для связи
+            all_articles = set()
+            article_advert_map = {}  # Маппинг артикул -> advertId
+            
+            for camp in search_campaign:
+                if 'unitedParams' in camp and camp['unitedParams']:
+                    article_num = camp['unitedParams'][0]['nms'][0]
+                    all_articles.add(article_num)
+                    article_advert_map[camp['advertId']] = article_num
+            
+            for camp in rack_campaign:
+                if 'autoParams' in camp:
+                    article_num = camp['autoParams']['nms'][0]
+                    all_articles.add(article_num)
+                    article_advert_map[camp['advertId']] = article_num
 
-# @shared_task
+            for resp in response:
+                advert_id = resp['advertId']
+                if advert_id in article_advert_map:
+                    resp['article_number'] = article_advert_map[advert_id]
+
+            params_for_creaete_report = {
+                    "id": uuid_string,
+                    "reportType": "DETAIL_HISTORY_REPORT",
+                    "userReportName": "Card report",
+                    "params": {
+                        "nmIDs": [],
+                        "startDate": date_start_str,
+                        "endDate": date_end_str,
+                        "timezone": "Europe/Moscow",
+                        "aggregationLevel": "day",
+                        "skipDeletedNm": False
+                        }
+                }
+            
+            create_response = requests.post(url_create_report, headers=headers_advertisings, json=params_for_creaete_report)
+            if create_response.status_code != 200:
+                logger.warning(f"Ошибка при создании отчета: {create_response.status_code}")
+                logger.warning(f"Детали ошибки: {create_response.json().get('detail', 'Неизвестная ошибка')}")
+                return None
+            
+            time.sleep(10)
+
+            url_get_report = f'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads/file/{uuid_string}' # GET
+            response_report = requests.get(url_get_report, headers=headers_advertisings)
+            if response_report.status_code != 200:
+                logger.warning(f"Ошибка при получении отчета: {response_report.status_code}")
+                logger.warning(f"Детали ошибки: {response_report.json().get('detail', 'Неизвестная ошибка')}")
+                report_json = None
+            else:
+                report_json = process_zip_report(response=response_report)
+                logger.info(f"Данные отчета: {report_json[:1] if report_json else 'None'}")
+
+            processed_data = process_api_data(
+                response=response, 
+                search_advertId=search_advertIds, 
+                rack_advertId=rack_advertIds,
+                report_data=report_json,
+                all_articles=list(all_articles)
+            )
+
+            processed_data['response'] = response
+            processed_data['report_data'] = report_json
+            processed_data['search_advertId'] = search_advertIds
+            processed_data['rack_advertId'] = rack_advertIds
+
+            processed_data_with_spp = add_spp_to_processed_data(processed_data, avg_spp_by_date_article)
+
+            # Сохраняем данные в модель Statics для всех дат
+            save_to_statics_model(processed_data_with_spp, avg_spp_by_date_article, cab_num)
+
+            if jwts_advertisings.index(jwt_advertisings) < len(jwts_advertisings) - 1:
+                logger.info(f"Пауза между кабинетами 180 секунд")
+                time.sleep(60)
+                
+        except Exception as e:
+            logger.error(f"Ошибка при обработке кабинета {jwts_advertisings.index(jwt_advertisings) + 1}: {e}")
+            continue
+
+@shared_task
 def export_statistics_to_google_sheets():
     """Задача для экспорта статистики в Google Sheets"""
     try:
         # Используем безопасный метод
-        success = sheets_exporter.export_statistics_to_sheets_safe(days_back=7)
+        success = sheets_exporter.export_statistics_to_sheets_safe(days_back=30)
         if success:
             logger.info("Данные успешно экспортированы в Google Sheets с заголовками")
         else:
@@ -302,12 +312,6 @@ def save_to_statics_model(processed_data, avg_spp_data, cab_num):
                     avg_spp = avg_spp_data.get((date_str, article_str), 0)
                     article_stats['avg_spp'] = avg_spp
                     
-                    # Логируем полученные данные для отладки
-                    logger.info(f"Данные для артикула {article_str} на {date_str}: "
-                               f"views={article_stats['views_PK']}, "
-                               f"clicks={article_stats['clicks_PK']}, "
-                               f"sum={article_stats['adv_expenses']}")
-                    
                     # Проверяем, существует ли уже запись
                     existing_record = Statics.objects.filter(
                         cab_num=cab_num,
@@ -402,13 +406,13 @@ def get_article_stats_for_date(processed_data, article_number, date_str):
             continue
         
         if item_date_str == date_str and str(item.get('nmID')) == article_number:
-            report_stats['openCardCount'] = item.get('openCardCount', 0)
-            report_stats['addToCartCount'] = item.get('addToCartCount', 0)
-            report_stats['ordersCount'] = item.get('ordersCount', 0)
-            report_stats['ordersSumRub'] = item.get('ordersSumRub', 0)
-            report_stats['buyoutsCount'] = item.get('buyoutsCount', 0)
-            report_stats['buyoutsSumRub'] = item.get('buyoutsSumRub', 0)
-            break
+            report_stats['openCardCount'] += item.get('openCardCount', 0)
+            report_stats['addToCartCount'] += item.get('addToCartCount', 0)
+            report_stats['ordersCount'] += item.get('ordersCount', 0)
+            report_stats['ordersSumRub'] += item.get('ordersSumRub', 0)
+            report_stats['buyoutsCount'] += item.get('buyoutsCount', 0)
+            report_stats['buyoutsSumRub'] += item.get('buyoutsSumRub', 0)
+            # Не прерываем цикл, так как может быть несколько записей для одной даты
     
     return {
         'article_number': article_number,
@@ -438,11 +442,6 @@ def get_article_stats_for_date(processed_data, article_number, date_str):
         'basket_APK': int(article_rack_stats['atbs']),
         'orders_APK': int(article_rack_stats['orders']),
         'cost_APK': int(article_rack_stats['sum']),
-        
-        # # Данные из отчета
-        # 'openCardCount': report_stats['openCardCount'],
-        # 'buyoutsCount': report_stats['buyoutsCount'],
-        # 'buyoutsSumRub': report_stats['buyoutsSumRub']
     }
 
 def update_existing_record(record, stats):
@@ -499,6 +498,6 @@ def create_new_record(date_obj, article_number, stats, cab_num):
         orders_APK=stats['orders_APK'],
         cost_APK=stats['cost_APK'],
         avg_spp=stats['avg_spp'],
-        buyouts_num = stats['buyouts_num'],
-        buyouts_sum = stats['buyouts_sum']
+        buyouts_num=stats['buyouts_num'],
+        buyouts_sum=stats['buyouts_sum']
     )

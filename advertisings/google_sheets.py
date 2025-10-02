@@ -118,7 +118,8 @@ class GoogleSheetsExporter:
                     'green': 0.9,
                     'blue': 0.9
                 },
-                'horizontalAlignment': 'CENTER'
+                'horizontalAlignment': 'CENTER',
+                'wrapStrategy': 'WRAP'
             })
             
             logger.info("Заголовки успешно добавлены и отформатированы")

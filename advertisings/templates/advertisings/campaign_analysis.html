@@ -1,4 +1,358 @@
 {% extends 'base.html' %}
+{% block title %}Статистика по дням{% endblock %}
+{% block content %}
+{% if user.is_authenticated %}
+    {% load custom_filters %}
+    {% load humanize %}
+    <div class="container">
+        <form method="post" action="">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Введите артикул товара</h6>
+                    <div class="form-group">
+                        {{ form.article }}
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Выберите диапозон дат для статистики</h6>
+                    <div class="form-group">
+                        <div class="input-group date my-1" id="datetimepicker3" data-target-input="nearest">
+                            {{ form.date_start }}
+                            <div class="input-group-append" data-target="#datetimepicker3" data-toggle="datetimepicker">
+                                <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                            </div>
+                        </div>
+                        <div class="input-group date my-1" id="datetimepicker4" data-target-input="nearest">
+                            {{ form.date_end }}
+                            <div class="input-group-append" data-target="#datetimepicker4" data-toggle="datetimepicker">
+                                <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Показать статистику</button>
+                </div>
+            </div>
+        </form>
+
+        {% if error %}
+            <div class="alert alert-danger mt-3">{{ error }}</div>
+        {% endif %}
+    </div>
+
+    {% if total_interval %}
+    <div style="width: 100vw; margin-left: calc(-50vw + 50%);">
+        <div class="table-responsive" style="font-size: 11px;">
+            <div style="text-align: center; padding: 10px 0;">
+                <h4>Статистика рекламы для {{art_prod}} за период: {{ total_interval }}</h4>
+            </div>
+            <table id="campaignTable" class="table table-hover display" style="width: 90%; margin: 0 auto; table-layout: auto;">
+                <thead class="my-custom-header">
+                    <tr>
+                        <th>Дата</th>
+                        <th>Тип</th>
+                        <th>Просмотры</th>
+                        <th>Клики</th>
+                        <th>CTR</th>
+                        <th>CPC</th>
+                        <th>CPO</th>
+                        <th>Затраты</th>
+                        <th>Корзина</th>
+                        <th>Заказы</th>
+                        <th>CR</th>
+                        <th>Отменено</th>
+                        <th>Сумма заказов в РК</th>
+                        <th>Переходы</th>
+                        <th>Корзина</th>
+                        <th>CR1</th>
+                        <th>Заказы</th>
+                        <th>CR2</th>
+                        <th>Сумма заказов Воронка</th>
+                        <th>ДРРз</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if stats_data.dates|length > 1 %}
+                    <!-- Итоги за весь период -->
+                    <tr class="table-info">
+                        <td>За весь интервал</td>
+                        <td>Всего</td>
+                        <td>{{ stats_data.totals.all.views|default:0 }}</td>
+                        <td>{{ stats_data.totals.all.clicks|default:0 }}</td>
+                        <td>{{ stats_data.totals.all.ctr|default:0 }} %</td>
+                        <td>{{ stats_data.totals.all.cpc|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.all.cpo|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.all.sum|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.all.atbs|default:0 }}</td>
+                        <td>{{ stats_data.totals.all.orders|default:0 }}</td>
+                        <td>{{ stats_data.totals.all.cr|default:0 }} %</td>
+                        <td>{{ stats_data.totals.all.canceled|default:0 }}</td>
+                        <td>{{ stats_data.totals.all.sum_price|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.all.openCardCount|default:0 }}</td>
+                        <td>{{ stats_data.totals.all.addToCartCount|default:0 }}</td>
+                        <td>{{ stats_data.totals.all.cr1|default:0 }} %</td>
+                        <td>{{ stats_data.totals.all.ordersCount|default:0 }}</td>
+                        <td>{{ stats_data.totals.all.cr2|default:0 }} %</td>
+                        <td>{{ stats_data.totals.all.ordersSumRub|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.all.drrz|default:0 }} %</td>
+                    </tr>
+                    <tr class="table-info">
+                        <td>За весь интервал</td>
+                        <td>АУК</td>
+                        <td>{{ stats_data.totals.search.views|default:0 }}</td>
+                        <td>{{ stats_data.totals.search.clicks|default:0 }}</td>
+                        <td>{{ stats_data.totals.search.ctr|default:0 }} %</td>
+                        <td>{{ stats_data.totals.search.cpc|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.search.cpo|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.search.sum|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.search.atbs|default:0 }}</td>
+                        <td>{{ stats_data.totals.search.orders|default:0 }}</td>
+                        <td>{{ stats_data.totals.search.cr|default:0 }} %</td>
+                        <td>{{ stats_data.totals.search.canceled|default:0 }}</td>
+                        <td>{{ stats_data.totals.search.sum_price|default:0 }} ₽</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr class="table-info">
+                        <td>За весь интервал</td>
+                        <td>АРК</td>
+                        <td>{{ stats_data.totals.rack.views|default:0 }}</td>
+                        <td>{{ stats_data.totals.rack.clicks|default:0 }}</td>
+                        <td>{{ stats_data.totals.rack.ctr|default:0 }} %</td>
+                        <td>{{ stats_data.totals.rack.cpc|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.rack.cpo|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.rack.sum|default:0 }} ₽</td>
+                        <td>{{ stats_data.totals.rack.atbs|default:0 }}</td>
+                        <td>{{ stats_data.totals.rack.orders|default:0 }}</td>
+                        <td>{{ stats_data.totals.rack.cr|default:0 }} %</td>
+                        <td>{{ stats_data.totals.rack.canceled|default:0 }}</td>
+                        <td>{{ stats_data.totals.rack.sum_price|default:0 }} ₽</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    {% endif %}
+                    
+                    <!-- Ежедневная статистика -->
+                    {% for date in stats_data.dates %}
+                    {% with day_stats=stats_data.daily_stats|get_item:date %}
+                    {% with day_name=stats_data.dates_data|get_item:date|get_item:'day_name' %}
+                    <tr>
+                        <td>{{ date|format_date_string }}<br><small>{{ day_name }}</small></td>
+                        <td>Всего</td>
+                        <td>{{ day_stats.all.views|default:0 }}</td>
+                        <td>{{ day_stats.all.clicks|default:0 }}</td>
+                        <td style="{% if day_stats.all.ctr < 1.7 %}background-color: #ff556e73;{% elif day_stats.all.ctr > 2 %}background-color: #55ff5d73;{% endif %}">
+                            {{ day_stats.all.ctr|default:0 }} %
+                        </td>
+                        <td>{{ day_stats.all.cpc|default:0 }} ₽</td>
+                        <td>{{ day_stats.all.cpo|default:0 }} ₽</td>
+                        <td>{{ day_stats.all.sum|default:0 }} ₽</td>
+                        <td>{{ day_stats.all.atbs|default:0 }}</td>
+                        <td>{{ day_stats.all.orders|default:0 }}</td>
+                        <td>{{ day_stats.all.cr|default:0 }} %</td>
+                        <td>{{ day_stats.all.canceled|default:0 }}</td>
+                        <td>{{ day_stats.all.sum_price|default:0 }} ₽</td>
+                        <td>{{ day_stats.all.openCardCount|default:0 }}</td>
+                        <td>{{ day_stats.all.addToCartCount|default:0 }}</td>
+                        <td>{{ day_stats.all.cr1|default:0 }} %</td>
+                        <td>{{ day_stats.all.ordersCount|default:0 }}</td>
+                        <td>{{ day_stats.all.cr2|default:0 }} %</td>
+                        <td>{{ day_stats.all.ordersSumRub|default:0 }} ₽</td>
+                        <td>{{ day_stats.all.drrz|default:0 }} %</td>
+                    </tr>
+                    <tr>
+                        <td>{{ date|format_date_string }}<br><small>{{ day_name }}</small></td>
+                        <td>АУК</td>
+                        <td>{{ day_stats.search.views|default:0 }}</td>
+                        <td>{{ day_stats.search.clicks|default:0 }}</td>
+                        <td>{{ day_stats.search.ctr|default:0 }} %</td>
+                        <td>{{ day_stats.search.cpc|default:0 }} ₽</td>
+                        <td>{{ day_stats.search.cpo|default:0 }} ₽</td>
+                        <td>{{ day_stats.search.sum|default:0 }} ₽</td>
+                        <td>{{ day_stats.search.atbs|default:0 }}</td>
+                        <td>{{ day_stats.search.orders|default:0 }}</td>
+                        <td>{{ day_stats.search.cr|default:0 }} %</td>
+                        <td>{{ day_stats.search.canceled|default:0 }}</td>
+                        <td>{{ day_stats.search.sum_price|default:0 }} ₽</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>{{ date|format_date_string }}<br><small>{{ day_name }}</small></td>
+                        <td>АРК</td>
+                        <td>{{ day_stats.rack.views|default:0 }}</td>
+                        <td>{{ day_stats.rack.clicks|default:0 }}</td>
+                        <td>{{ day_stats.rack.ctr|default:0 }} %</td>
+                        <td>{{ day_stats.rack.cpc|default:0 }} ₽</td>
+                        <td>{{ day_stats.rack.cpo|default:0 }} ₽</td>
+                        <td>{{ day_stats.rack.sum|default:0 }} ₽</td>
+                        <td>{{ day_stats.rack.atbs|default:0 }}</td>
+                        <td>{{ day_stats.rack.orders|default:0 }}</td>
+                        <td>{{ day_stats.rack.cr|default:0 }} %</td>
+                        <td>{{ day_stats.rack.canceled|default:0 }}</td>
+                        <td>{{ day_stats.rack.sum_price|default:0 }} ₽</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    {% endwith %}
+                    {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Подключение CSS и JS для DataTables с расширениями -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap4.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.bootstrap4.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/colreorder/1.6.2/css/colReorder.bootstrap4.min.css">
+
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap4.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.bootstrap4.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.colVis.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/colreorder/1.6.2/js/dataTables.colReorder.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Убедимся, что jQuery загружен
+            if (typeof jQuery === 'undefined') {
+                console.error('jQuery не загружен');
+                return;
+            }
+            
+            // Убедимся, что DataTables доступен
+            if (typeof $.fn.DataTable === 'undefined') {
+                console.error('DataTables не загружен');
+                return;
+            }
+
+            var table = $('#campaignTable').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/ru.json"
+                },
+                "paging": false,
+                "searching": true,
+                "ordering": true,
+                "order": [[0, "desc"]],
+                "dom": '<"row"<"col-sm-12 col-md-6"B><"col-sm-12 col-md-6"f>>' +
+                       '<"row"<"col-sm-12"tr>>' +
+                       '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                "responsive": true,
+                "autoWidth": false,
+                "stateSave": true,
+                "colReorder": true,
+                "buttons": [
+                    {
+                        extend: 'colvis',
+                        text: 'Видимость столбцов',
+                        className: 'btn btn-secondary btn-sm',
+                        columns: ':not(:first-child)'
+                    },
+                    {
+                        extend: 'collection',
+                        text: 'Экспорт',
+                        className: 'btn btn-success btn-sm',
+                        buttons: [
+                            {
+                                extend: 'copy',
+                                text: 'Копировать',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            },
+                            {
+                                extend: 'csv',
+                                text: 'CSV',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            },
+                            {
+                                extend: 'excel',
+                                text: 'Excel',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            },
+                            {
+                                extend: 'pdf',
+                                text: 'PDF',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            },
+                            {
+                                extend: 'print',
+                                text: 'Печать',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "columnDefs": [
+                    { 
+                        "targets": [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19],
+                        "type": "num" 
+                    }
+                ]
+            });
+
+            // Проверка инициализации
+            console.log('DataTable инициализирована:', table);
+        });
+    </script>
+    {% endif %}
+
+{% else %}
+    <div class="row container-fluid vh-100 d-flex justify-content-center align-items-center">
+        <div class="col-md-10 col-lg-8 text-center">
+            <h4>Дорогой друг, пожалуйста, <a href="{% url 'accounts:login' %}">авторизуйся</a>!</h4>
+            <p>Без авторизации сервисы данного приложения, к сожалению, не будут доступны.</p>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+
+
+{% comment %} {% extends 'base.html' %}
 {% block title %}Список отзывов{% endblock %}
 {% block content %}
 {% if user.is_authenticated %}
@@ -203,4 +557,4 @@
         </div>
     </div>
 {% endif %}
-{% endblock %}
+{% endblock %} {% endcomment %}

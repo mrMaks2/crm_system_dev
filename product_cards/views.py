@@ -12,11 +12,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('product_cards_views')
 
 load_dotenv()
-jwt_advertisings_cab1 = os.getenv('jwt_advertisings_cab1_1')
-jwt_advertisings_cab2 = os.getenv('jwt_advertisings_cab2')
-jwt_advertisings_cab3 = os.getenv('jwt_advertisings_cab3')
+jwt_media_cab1 = os.getenv('jwt_media_cab1')
+jwt_media_cab2 = os.getenv('jwt_media_cab2')
+jwt_media_cab3 = os.getenv('jwt_media_cab3')
 
-jwts_advertisings = {'cab_1': jwt_advertisings_cab1, 'cab_2': jwt_advertisings_cab2, 'cab_3': jwt_advertisings_cab3}
+jwts_medias = {'cab_1': jwt_media_cab1, 'cab_2': jwt_media_cab2, 'cab_3': jwt_media_cab3}
 
 url_product_list = 'https://content-api.wildberries.ru/content/v2/get/cards/list'
 url_update_product_card = 'https://content-api.wildberries.ru/content/v2/cards/update'
@@ -33,7 +33,7 @@ def product_cards(request):
             cab_num = form.cleaned_data.get('cabinet')
 
             headers_product_card = {
-                'Authorization': jwts_advertisings[cab_num]
+                'Authorization': jwts_medias[cab_num]
             }
 
             # Получение данных карточки товара
@@ -98,7 +98,7 @@ def update_product_card(request):
             }]
 
             headers = {
-                'Authorization': jwts_advertisings[cabinet],
+                'Authorization': jwts_medias[cabinet],
                 'Content-Type': 'application/json'
             }
 
@@ -137,7 +137,7 @@ def upload_media_file(request):
                 return JsonResponse({'success': False, 'message': 'Неподдерживаемый формат файла'})
             
             headers = {
-                'Authorization': jwts_advertisings[cabinet],
+                'Authorization': jwts_medias[cabinet],
                 'X-Nm-Id': str(nm_id),
                 'X-Photo-Number': str(photo_number)
             }
@@ -185,7 +185,7 @@ def reorder_images(request):
             
             # Получаем текущие данные карточки
             headers_product_card = {
-                'Authorization': jwts_advertisings[cabinet]
+                'Authorization': jwts_medias[cabinet]
             }
             
             params = {
@@ -233,19 +233,7 @@ def reorder_images(request):
                     'success': False, 
                     'message': f'Несоответствие количества изображений: было {len(photos)}, передано {len(new_order)}'
                 })
-            
-            # ВАЖНО: Убеждаемся, что нет дубликатов в new_order
-            # used_indices = set()
-            # for reorder_item in new_order:
-            #     old_index = reorder_item['oldIndex']
-            #     if old_index in used_indices:
-            #         return JsonResponse({
-            #             'success': False, 
-            #             'message': f'Обнаружен дубликат изображения с индексом {old_index}'
-            #         })
-            #     used_indices.add(old_index)
-            
-            # Создаем новый порядок ссылок на изображения (уникальные)
+
             image_urls = []
             seen_urls = set()  # Для отслеживания уникальных URL
 
@@ -290,7 +278,7 @@ def reorder_images(request):
             }
             
             headers = {
-                'Authorization': jwts_advertisings[cabinet],
+                'Authorization': jwts_medias[cabinet],
                 'Content-Type': 'application/json'
             }
             

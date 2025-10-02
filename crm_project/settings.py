@@ -118,7 +118,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'ru-ru'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
 
@@ -156,14 +156,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'reviews.tasks.deleter_reviews',
         'schedule': crontab(minute='*/15'),
     },
-    # 'get-and-save-advertisings-stats-every-day': {
-    #     'task': 'advertisings.tasks.get_and_save_advertisings_stats',
-    #     'schedule': crontab(minute='0', hour='2'),
-    # },
-    # 'export-statistics-to-google-sheets-every-day': {
-    #     'task': 'advertisings.tasks.export_statistics_to_google_sheets',
-    #     'schedule': crontab(minute='0', hour='3'),
-    # },
+    'get-and-save-advertisings-stats-every-day': {
+        'task': 'advertisings.tasks.get_and_save_advertisings_stats',
+        'schedule': crontab(minute='30', hour='7'),
+    },
+    'export-statistics-to-google-sheets-every-day': {
+        'task': 'advertisings.tasks.export_statistics_to_google_sheets',
+        'schedule': crontab(minute='40', hour='7'),
+    },
 }
 
 CELERY_BROKER_URL = 'redis://redis:6379/0'

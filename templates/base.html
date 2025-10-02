@@ -45,9 +45,9 @@
       <div class="collapse navbar-collapse" id="navbarNavDropdown">
         <ul class="navbar-nav ml-auto">
           {% if user.is_authenticated %}
-            <li class="nav-item mx-1 {% if request.path == product_cards_url %} active {% endif %}">
+            {% comment %} <li class="nav-item mx-1 {% if request.path == product_cards_url %} active {% endif %}">
               <a class="nav-link" href="{% url 'product_cards:product_cards' %}" id="brand">Карточка товара </a>
-            </li>
+            </li> {% endcomment %}
             <li class="nav-item mx-1 {% if request.path == review_list_url %} active {% endif %}">
               <a class="nav-link" href="{% url 'reviews:review_list' %}" id="brand">Отзывы </a>
             </li>

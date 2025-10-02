@@ -1,4 +1,255 @@
 {% extends 'base.html' %}
+{% block title %}Статистики по ключевым фразам{% endblock %}
+{% block content %}
+{% if user.is_authenticated %}
+    {% load custom_filters %}
+    {% load humanize %}
+    <div class="container">
+        <form method="post" action="">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Введите артикул товара</h6>
+                    <div class="form-group">
+                        {{ form.article }}
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Выберите диапозон дат для статистики</h6>
+                    <div class="form-group">
+                        <div class="input-group date my-1" id="datetimepicker3" data-target-input="nearest">
+                            {{ form.date_start }}
+                            <div class="input-group-append" data-target="#datetimepicker3" data-toggle="datetimepicker">
+                                <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                            </div>
+                        </div>
+                        <div class="input-group date my-1" id="datetimepicker4" data-target-input="nearest">
+                            {{ form.date_end }}
+                            <div class="input-group-append" data-target="#datetimepicker4" data-toggle="datetimepicker">
+                                <div class="input-group-text"><i class="fa fa-calendar"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Выберите вид рекламы</h6>
+                    <div class="form-group">
+                        <select name="{{ form.my_dropdown.name }}" class="form-control">
+                            <option value="" disabled selected hidden>Выберите вид рекламы</option>
+                            {% for choice in form.my_dropdown.field.choices %}
+                                <option value="{{ choice.0 }}" {% if choice.0 == form.my_dropdown.value %}selected{% endif %}>
+                                    {{ choice.1 }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Показать статистику</button>
+        </form>
+
+        {% if error %}
+            <div class="alert alert-danger mt-3">{{ error }}</div>
+        {% endif %}
+    </div>
+
+    {% if total_interval %}
+    <div style="width: 100vw; margin-left: calc(-50vw + 50%);">
+        <div class="table-responsive" style="font-size: 11px;">
+            <div style="text-align: center; padding: 10px 0;">
+                <h4>Статистика ключевых слов для {{ art_prod }} за период: {{ total_interval }}</h4>
+            </div>
+            <table id="keywordsTable" class="table table-hover display" style="width: 95%; margin: 0 auto; table-layout: auto;">
+                <thead class="my-custom-header">
+                    <tr>
+                        <th>Ключевые фразы</th>
+                        <th>Частотность</th>
+                        <th>Показы, шт</th>
+                        <th>Клики, шт</th>
+                        <th>CTR, %</th>
+                        <th>CPC, руб</th>
+                        <th>Затраты, руб</th>
+                        <th>Затраты, %</th>
+                        <th>Средняя позиция</th>
+                        <th>Переходы, шт</th>
+                        <th>Корзины, шт</th>
+                        <th>CR1, %</th>
+                        <th>Цена корзины, руб</th>
+                        <th>Заказы, шт</th>
+                        <th>CR2, %</th>
+                        <th>CPO, руб</th>
+                        <th>Видимость</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for keyword, stats in keywords_data.keywords %}
+                    <tr>
+                        <td style="font-weight: bold;">{{ keyword }}</td>
+                        <td>{{ stats.frequency|default:'-' }}</td>
+                        <td>{{ stats.views|default:'-' }}</td>
+                        <td>{{ stats.clicks|default:'-' }}</td>
+                        <td>{{ stats.ctr|floatformat:2|default:'-' }}</td>
+                        <td>{{ stats.cpc|floatformat:2|default:'-' }}</td>
+                        <td>{{ stats.sum|floatformat:2|default:'-' }}</td>
+                        <td>{{ stats.cost_percent|floatformat:2|default:'-' }}</td>
+                        <td>{{ stats.avg_position|floatformat:0|default:'-' }}</td>
+                        <td>{{ stats.open_card_count|default:'-' }}</td>
+                        <td>{{ stats.add_to_cart_count|default:'-' }}</td>
+                        <td>{{ stats.cr1|default:'-' }}</td>
+                        <td>
+                            {% if stats.add_to_cart_count > 0 %}
+                                {{ stats.sum|div:stats.add_to_cart_count|floatformat:2 }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{{ stats.orders_count|default:'-' }}</td>
+                        <td>{{ stats.cr2|default:'-' }}</td>
+                        <td>
+                            {% if stats.orders_count > 0 %}
+                                {{ stats.sum|div:stats.orders_count|floatformat:2 }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{{ stats.visibility|default:'-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Подключение CSS и JS для DataTables с расширениями -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap4.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.bootstrap4.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/colreorder/1.6.2/css/colReorder.bootstrap4.min.css">
+
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap4.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.bootstrap4.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.colVis.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/colreorder/1.6.2/js/dataTables.colReorder.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Убедимся, что jQuery загружен
+            if (typeof jQuery === 'undefined') {
+                console.error('jQuery не загружен');
+                return;
+            }
+            
+            // Убедимся, что DataTables доступен
+            if (typeof $.fn.DataTable === 'undefined') {
+                console.error('DataTables не загружен');
+                return;
+            }
+
+            var table = $('#keywordsTable').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/ru.json"
+                },
+                "paging": false,
+                "searching": true,
+                "ordering": true,
+                "order": [[2, "desc"]],
+                "dom": '<"row"<"col-sm-12 col-md-6"B><"col-sm-12 col-md-6"f>>' +
+                       '<"row"<"col-sm-12"tr>>' +
+                       '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                "responsive": true,
+                "autoWidth": false,
+                "stateSave": true,
+                "colReorder": true,
+                "buttons": [
+                    {
+                        extend: 'colvis',
+                        text: 'Видимость столбцов',
+                        className: 'btn btn-secondary btn-sm',
+                        columns: ':not(:first-child)'
+                    },
+                    {
+                        extend: 'collection',
+                        text: 'Экспорт',
+                        className: 'btn btn-success btn-sm',
+                        buttons: [
+                            {
+                                extend: 'copy',
+                                text: 'Копировать',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            },
+                            {
+                                extend: 'csv',
+                                text: 'CSV',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            },
+                            {
+                                extend: 'excel',
+                                text: 'Excel',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            },
+                            {
+                                extend: 'pdf',
+                                text: 'PDF',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            },
+                            {
+                                extend: 'print',
+                                text: 'Печать',
+                                className: 'btn btn-outline-secondary btn-sm',
+                                exportOptions: {
+                                    columns: ':visible'
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "columnDefs": [
+                    { 
+                        "targets": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
+                        "type": "num" 
+                    }
+                ]
+            });
+
+            // Проверка инициализации
+            console.log('DataTable инициализирована:', table);
+        });
+    </script>
+    {% endif %}
+
+{% else %}
+    <div class="row container-fluid vh-100 d-flex justify-content-center align-items-center">
+        <div class="col-md-10 col-lg-8 text-center">
+            <h4>Дорогой друг, пожалуйста, <a href="{% url 'accounts:login' %}">авторизуйся</a>!</h4>
+            <p>Без авторизации сервисы данного приложения, к сожалению, не будут доступны.</p>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+
+
+
+{% comment %} {% extends 'base.html' %}
 {% block title %}Список отзывов{% endblock %}
 {% block content %}
 {% if user.is_authenticated %}
@@ -130,4 +381,4 @@
         </div>
     </div>
 {% endif %}
-{% endblock %}
+{% endblock %} {% endcomment %}
