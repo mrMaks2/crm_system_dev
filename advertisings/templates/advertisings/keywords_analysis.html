@@ -87,7 +87,7 @@
                 </thead>
                 <tbody>
                     {% for keyword, stats in keywords_data.keywords %}
-                    <tr>
+                    <tr style="{% if stats.orders_count|default:'0' > 0 %}background-color: #55ff5d73;{% endif %}">
                         <td style="font-weight: bold;">{{ keyword }}</td>
                         <td>{{ stats.frequency|default:'-' }}</td>
                         <td>{{ stats.views|default:'-' }}</td>
