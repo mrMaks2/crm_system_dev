@@ -30,6 +30,7 @@ url_info_campaign_nmID = 'https://advert-api.wildberries.ru/adv/v1/promotion/adv
 url_info_campaign_stats = 'https://advert-api.wildberries.ru/adv/v3/fullstats' # GET
 url_create_report = 'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads' # POST
 url_orders = 'https://statistics-api.wildberries.ru/api/v1/supplier/orders' # GET
+url_sales = 'https://statistics-api.wildberries.ru/api/v1/supplier/sales' # GET  # НОВЫЙ URL
 
 @shared_task
 def get_and_save_advertisings_stats():
@@ -55,8 +56,12 @@ def get_and_save_advertisings_stats():
             date_start_str = yesterday.strftime('%Y-%m-%d')
             date_end_str = yesterday.strftime('%Y-%m-%d')
 
+            # Получаем данные заказов и продаж параллельно
             orders_data = get_orders_data(date_start_str, headers_advertisings)
+            sales_data = get_sales_data(date_start_str, headers_advertisings)  # НОВЫЙ ЗАПРОС
+            
             avg_spp_by_date_article = calculate_avg_spp(orders_data)
+            buyouts_by_date_article = calculate_buyouts_from_sales(sales_data)  # НОВЫЙ РАСЧЕТ
 
             all_campaigns_response = requests.get(url_all_campaigns, headers=headers_advertisings)
             if all_campaigns_response.status_code != 200:
@@ -179,7 +184,7 @@ def get_and_save_advertisings_stats():
             processed_data_with_spp = add_spp_to_processed_data(processed_data, avg_spp_by_date_article)
 
             # Сохраняем данные в модель Statics для всех дат
-            save_to_statics_model(processed_data_with_spp, avg_spp_by_date_article, cab_num)
+            save_to_statics_model(processed_data_with_spp, avg_spp_by_date_article, cab_num, buyouts_by_date_article)  # ДОБАВЛЕН ПАРАМЕТР
 
             if jwts_advertisings.index(jwt_advertisings) < len(jwts_advertisings) - 1:
                 logger.info(f"Пауза между кабинетами 180 секунд")
@@ -204,6 +209,121 @@ def export_statistics_to_google_sheets():
         logger.error(f"Ошибка при экспорте в Google Sheets: {e}")
         return False
 
+def get_sales_data(date_from, headers_advertisings, max_requests=10):
+    """
+    Получает данные о продажах с пагинацией для больших интервалов
+    """
+    all_sales_data = []
+    last_change_date = date_from
+    request_count = 0
+    
+    try:
+        while request_count < max_requests:
+            request_count += 1
+            
+            params = {
+                "dateFrom": last_change_date,
+                "flag": 0  # Используем пагинацию по lastChangeDate
+            }
+            
+            logger.info(f"Запрос данных о продажах {request_count} с dateFrom: {last_change_date}")
+            response = requests.get(url_sales, headers=headers_advertisings, params=params)
+            
+            if response.status_code != 200:
+                logger.warning(f"Ошибка при получении продаж: {response.status_code} - {response.text}")
+                break
+            
+            sales_batch = response.json()
+            
+            if not sales_batch or not isinstance(sales_batch, list):
+                logger.info("Получен пустой ответ или все данные выгружены")
+                break
+            
+            # Если получен пустой массив - все данные выгружены
+            if len(sales_batch) == 0:
+                logger.info("Получен пустой массив - все продажи выгружены")
+                break
+            
+            logger.info(f"Получено {len(sales_batch)} записей о продажах в батче {request_count}")
+            all_sales_data.extend(sales_batch)
+            
+            # Если получено меньше ~80000 записей, значит это последний батч
+            if len(sales_batch) < 80000:
+                logger.info(f"Получен последний батч ({len(sales_batch)} записей)")
+                break
+            
+            # Получаем последнюю дату изменения для следующего запроса
+            last_record = sales_batch[-1]
+            last_change_date = last_record.get('lastChangeDate', '')
+            
+            if not last_change_date:
+                logger.warning("Не удалось получить lastChangeDate из последней записи")
+                break
+            
+            # Преобразуем дату в правильный формат (убираем время если нужно)
+            if 'T' in last_change_date:
+                last_change_date = last_change_date.split('T')[0]
+            
+            logger.info(f"Следующий запрос с lastChangeDate: {last_change_date}")
+            
+            # Небольшая задержка между запросами для соблюдения лимитов
+            time.sleep(60)
+        
+        logger.info(f"Всего получено {len(all_sales_data)} записей о продажах за {request_count} запросов")
+        return all_sales_data
+        
+    except Exception as e:
+        logger.error(f"Ошибка при получении данных о продажах с пагинацией: {e}")
+        return all_sales_data
+
+def calculate_buyouts_from_sales(sales_data):
+    """
+    Рассчитывает количество и сумму выкупов из данных о продажах
+    """
+    buyouts_by_date_article = defaultdict(lambda: {'count': 0, 'sum': 0.0})
+    
+    if not sales_data or not isinstance(sales_data, list):
+        logger.warning("Нет данных о продажах для расчета выкупов")
+        return {}
+    
+    for sale in sales_data:
+        try:
+            if not isinstance(sale, dict):
+                continue
+                
+            # Проверяем, что это реальная продажа (не возврат и т.д.)
+            if not sale.get('isRealization', True):
+                continue
+                
+            # Извлекаем дату из поля date
+            sale_date_str = sale.get('date', '')
+            if not sale_date_str:
+                continue
+                
+            # Преобразуем дату в формат YYYY-MM-DD
+            if 'T' in sale_date_str:
+                sale_date = sale_date_str.split('T')[0]
+            else:
+                sale_date = sale_date_str
+            
+            nm_id = str(sale.get('nmId', ''))
+            if not nm_id:
+                continue
+            
+            # Используем priceWithDisc как сумму выкупа
+            price_with_disc = float(sale.get('priceWithDisc', 0))
+            
+            # Учитываем только положительные суммы
+            if price_with_disc > 0:
+                buyouts_by_date_article[(sale_date, nm_id)]['count'] += 1
+                buyouts_by_date_article[(sale_date, nm_id)]['sum'] += price_with_disc
+                
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning(f"Ошибка при обработке продажи {sale}: {e}")
+            continue
+    
+    logger.info(f"Рассчитано выкупов для {len(buyouts_by_date_article)} комбинаций дата-артикул")
+    return buyouts_by_date_article
 
 def get_orders_data(date_from, headers_advertisings):
     """Получает данные о заказах с statistics API"""
@@ -288,7 +408,7 @@ def add_spp_to_processed_data(processed_data, avg_spp_data):
     
     return processed_data
 
-def save_to_statics_model(processed_data, avg_spp_data, cab_num):
+def save_to_statics_model(processed_data, avg_spp_data, cab_num, buyouts_by_date_article):
     """Сохраняет данные в модель Statics для всех дат и всех артикулов"""
     try:
         dates = processed_data.get('dates', [])
@@ -311,6 +431,11 @@ def save_to_statics_model(processed_data, avg_spp_data, cab_num):
                     # Получаем среднее SPP для этой даты и артикула
                     avg_spp = avg_spp_data.get((date_str, article_str), 0)
                     article_stats['avg_spp'] = avg_spp
+                    
+                    # Получаем данные о выкупах для этой даты и артикула
+                    buyouts_data = buyouts_by_date_article.get((date_str, article_str), {'count': 0, 'sum': 0.0})
+                    article_stats['buyouts_num'] = buyouts_data['count']
+                    article_stats['buyouts_sum'] = buyouts_data['sum']
                     
                     # Проверяем, существует ли уже запись
                     existing_record = Statics.objects.filter(
@@ -410,8 +535,6 @@ def get_article_stats_for_date(processed_data, article_number, date_str):
             report_stats['addToCartCount'] += item.get('addToCartCount', 0)
             report_stats['ordersCount'] += item.get('ordersCount', 0)
             report_stats['ordersSumRub'] += item.get('ordersSumRub', 0)
-            report_stats['buyoutsCount'] += item.get('buyoutsCount', 0)
-            report_stats['buyoutsSumRub'] += item.get('buyoutsSumRub', 0)
             # Не прерываем цикл, так как может быть несколько записей для одной даты
     
     return {
@@ -426,8 +549,7 @@ def get_article_stats_for_date(processed_data, article_number, date_str):
         'basket_PK': int(article_stats['atbs']),
         'orders_num_PK': int(article_stats['orders']),
         'orders_sum_PK': int(article_stats['sum_price']),
-        'buyouts_num': int(report_stats['buyoutsCount']),
-        'buyouts_sum': int(report_stats['buyoutsSumRub']),
+        # Выкупы теперь будут добавляться из данных о продажах в save_to_statics_model
         
         # Данные для поисковых кампаний
         'views_AYK': int(article_search_stats['views']),
@@ -467,8 +589,8 @@ def update_existing_record(record, stats):
     record.orders_APK = stats['orders_APK']
     record.cost_APK = stats['cost_APK']
     record.avg_spp = stats['avg_spp']
-    record.buyouts_num = stats['buyouts_num']
-    record.buyouts_sum = stats['buyouts_sum']
+    record.buyouts_num = stats.get('buyouts_num', 0)
+    record.buyouts_sum = stats.get('buyouts_sum', 0)
     record.save()
 
 def create_new_record(date_obj, article_number, stats, cab_num):
@@ -498,6 +620,6 @@ def create_new_record(date_obj, article_number, stats, cab_num):
         orders_APK=stats['orders_APK'],
         cost_APK=stats['cost_APK'],
         avg_spp=stats['avg_spp'],
-        buyouts_num=stats['buyouts_num'],
-        buyouts_sum=stats['buyouts_sum']
+        buyouts_num=stats.get('buyouts_num', 0),
+        buyouts_sum=stats.get('buyouts_sum', 0)
     )
