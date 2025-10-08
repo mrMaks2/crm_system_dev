@@ -199,7 +199,7 @@ def export_statistics_to_google_sheets():
     """Задача для экспорта статистики в Google Sheets"""
     try:
         # Используем безопасный метод
-        success = sheets_exporter.export_statistics_to_sheets_safe(days_back=1)
+        success = sheets_exporter.export_statistics_to_sheets_safe(days_back=7)
         if success:
             logger.info("Данные успешно экспортированы в Google Sheets с заголовками")
         else:
