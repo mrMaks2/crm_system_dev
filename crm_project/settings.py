@@ -148,9 +148,9 @@ from celery.schedules import crontab
 # import reviews.tasks
 
 CELERY_BEAT_SCHEDULE = {
-    'fetch-reviews-every-20-minutes': {
+    'fetch-reviews-every-15-minutes': {
         'task': 'reviews.tasks.fetch_reviews',
-        'schedule': crontab(minute='*/20'),
+        'schedule': crontab(minute='*/15'),
     },
     'deleter-reviews-every-15-minutes': {
         'task': 'reviews.tasks.deleter_reviews',
@@ -158,11 +158,11 @@ CELERY_BEAT_SCHEDULE = {
     },
     'get-and-save-advertisings-stats-every-day': {
         'task': 'advertisings.tasks.get_and_save_advertisings_stats',
-        'schedule': crontab(minute='30', hour='7'),
+        'schedule': crontab(minute='10', hour='8'),
     },
     'export-statistics-to-google-sheets-every-day': {
         'task': 'advertisings.tasks.export_statistics_to_google_sheets',
-        'schedule': crontab(minute='40', hour='7'),
+        'schedule': crontab(minute='25', hour='8'),
     },
 }
 

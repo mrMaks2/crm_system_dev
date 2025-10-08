@@ -58,10 +58,10 @@ def get_and_save_advertisings_stats():
 
             # Получаем данные заказов и продаж параллельно
             orders_data = get_orders_data(date_start_str, headers_advertisings)
-            sales_data = get_sales_data(date_start_str, headers_advertisings)  # НОВЫЙ ЗАПРОС
+            sales_data = get_sales_data(date_start_str, headers_advertisings)
             
             avg_spp_by_date_article = calculate_avg_spp(orders_data)
-            buyouts_by_date_article = calculate_buyouts_from_sales(sales_data)  # НОВЫЙ РАСЧЕТ
+            buyouts_by_date_article = calculate_buyouts_from_sales(sales_data)
 
             all_campaigns_response = requests.get(url_all_campaigns, headers=headers_advertisings)
             if all_campaigns_response.status_code != 200:
@@ -70,7 +70,7 @@ def get_and_save_advertisings_stats():
             all_campaigns_list = all_campaigns_response.json().get('adverts', [])
 
             for active_campaign in all_campaigns_list:
-                if active_campaign['status'] == 9:
+                if active_campaign['status'] in (9, 11):
                     if active_campaign['type'] == 9: # Поисковые кампании
                         for ids in active_campaign['advert_list']:
                             search_advertIds.append(ids['advertId'])
@@ -109,11 +109,11 @@ def get_and_save_advertisings_stats():
 
             search_campaign = []
             if search_advertIds:
-                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds)
+                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds, headers_advertisings)
 
             rack_campaign = []
             if rack_advertIds:
-                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds)
+                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds, headers_advertisings)
 
             # Собираем все артикулы для связи
             all_articles = set()
@@ -187,7 +187,7 @@ def get_and_save_advertisings_stats():
             save_to_statics_model(processed_data_with_spp, avg_spp_by_date_article, cab_num, buyouts_by_date_article)  # ДОБАВЛЕН ПАРАМЕТР
 
             if jwts_advertisings.index(jwt_advertisings) < len(jwts_advertisings) - 1:
-                logger.info(f"Пауза между кабинетами 180 секунд")
+                logger.info(f"Пауза между кабинетами 60 секунд")
                 time.sleep(60)
                 
         except Exception as e:
@@ -199,7 +199,7 @@ def export_statistics_to_google_sheets():
     """Задача для экспорта статистики в Google Sheets"""
     try:
         # Используем безопасный метод
-        success = sheets_exporter.export_statistics_to_sheets_safe(days_back=30)
+        success = sheets_exporter.export_statistics_to_sheets_safe(days_back=1)
         if success:
             logger.info("Данные успешно экспортированы в Google Sheets с заголовками")
         else:
@@ -329,7 +329,8 @@ def get_orders_data(date_from, headers_advertisings):
     """Получает данные о заказах с statistics API"""
     try:
         params = {
-            "dateFrom": date_from
+            "dateFrom": date_from,
+            "flag": 1
         }
         
         response = requests.get(url_orders, headers=headers_advertisings, params=params)

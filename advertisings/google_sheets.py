@@ -147,9 +147,10 @@ class GoogleSheetsExporter:
                 logger.warning("Нет данных для экспорта")
                 return True
             
-            cab_nums = statistics.values_list('cab_num', flat=True).distinct()
+            cab_nums = set(statistics.values_list('cab_num', flat=True).distinct())
         
             for cab_num in cab_nums:
+                logger.info(f'Обработка кабинета {cab_num}')
                 sheet_name = f"Выгрузка из БД каб {cab_num}"
                 try:
                     worksheet = spreadsheet.worksheet(sheet_name)
@@ -178,9 +179,8 @@ class GoogleSheetsExporter:
                     # Записываем данные начиная со следующей свободной строки
                     worksheet.update(f'A{next_row}', data_to_export)
                     logger.info(f"Добавлено {len(data_to_export)} строк начиная с {next_row}")
-                    return True
             
-            return False
+            return True
             
         except Exception as e:
             logger.error(f"Ошибка при безопасном экспорте: {e}")

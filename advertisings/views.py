@@ -75,11 +75,11 @@ def advertisings_analysis(request):
 
             search_campaign = []
             if search_advertIds:
-                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds)
+                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds, headers_advertisings)
 
             rack_campaign = []
             if rack_advertIds:
-                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds)
+                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds, headers_advertisings)
 
             search_advertId = []
             rack_advertId = []
@@ -172,11 +172,11 @@ def advertisings_analysis(request):
     context = {'form': form}
     return render(request, 'advertisings/campaign_analysis.html', context)
 
-def make_batched_requests(url, advert_ids):
+def make_batched_requests(url, advert_ids, headers):
     results = []
     for i in range(0, len(advert_ids), 50):
         batch = advert_ids[i:i+50]
-        response = requests.post(url, headers=headers_advertisings, json=batch)
+        response = requests.post(url, headers=headers, json=batch)
         if response.status_code == 200:
             results.extend(response.json())
         else:
@@ -742,13 +742,13 @@ def keywords_analysis(request):
             rack_advertId = []
 
             if search_advertIds:
-                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds)
+                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds, headers_advertisings)
                 for camp in search_campaign:
                     if 'unitedParams' in camp and camp['unitedParams'] and camp['unitedParams'][0]['nms'][0] == int(article_number):
                         search_advertId.append(camp['advertId'])
             
             if rack_advertIds:
-                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds)
+                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds, headers_advertisings)
                 for camp in rack_campaign:
                     if 'autoParams' in camp and camp['autoParams']['nms'][0] == int(article_number):
                         rack_advertId.append(camp['advertId'])
