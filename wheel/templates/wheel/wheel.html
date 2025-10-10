@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Колесо Фортуны</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'wheel/css/style.css' %}">
+</head>
+<body>
+    <div class="wheel-container">
+        <h1>Крутите колесо!</h1>
+        
+        <!-- Контейнер для колеса -->
+        <div class="wheel-wrapper">
+            <canvas id="wheelCanvas" width="400" height="400"></canvas>
+            <div class="wheel-center">
+                <button id="spinButton">Крутить!</button>
+            </div>
+            <div class="wheel-pointer"></div>
+        </div>
+
+        <!-- Место для отображения результата -->
+        <div id="result"></div>
+    </div>
+
+    <!-- Скрытый input для передачи CSRF-токена в AJAX -->
+    {% csrf_token %}
+
+    <script src="{% static 'wheel/js/wheel.js' %}"></script>
+</body>
+</html>
