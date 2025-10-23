@@ -9,7 +9,7 @@
             {% csrf_token %}
             <div class="row">
                 <div class="col-md-12 my-2">
-                    <h6>Введите артикул товара</h6>
+                    <h5>Введите артикул товара</h5>
                     <div class="form-group">
                         {{ form.article }}
                     </div>
@@ -17,7 +17,8 @@
             </div>
             <div class="row">
                 <div class="col-md-12 my-2">
-                    <h6>Выберите диапозон дат для статистики</h6>
+                    <h5>Выберите диапозон дат для статистики</h5>
+                    <small>Можно получить данные за последний <strong>год</strong></small>
                     <div class="form-group">
                         <div class="input-group date my-1" id="datetimepicker3" data-target-input="nearest">
                             {{ form.date_start }}
@@ -31,6 +32,7 @@
                                 <div class="input-group-text"><i class="fa fa-calendar"></i></div>
                             </div>
                         </div>
+                        <small>Нельзя превышать диапозон дат свыше <strong>7</strong> дней</small>
                     </div>
                 </div>
             </div>

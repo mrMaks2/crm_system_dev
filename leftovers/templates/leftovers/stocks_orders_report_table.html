@@ -1,0 +1,259 @@
+{% load custom_filters %}
+<!-- Debug: report_type={{ report_type }}, report_data={{ report_data|default:"нет" }} -->
+
+<div class="container mt-4">
+    {% if report_data and report_data.report_data %}
+    <div class="d-flex flex-column mb-3">
+        <h4 class="mb-0">
+            {% if report_type == 'stocks' %}
+                Отчет по остаткам - Кабинет {{ cab_num }}
+            {% elif report_type == 'orders' %}
+                Отчет по заказам - Кабинет {{ cab_num }}
+            {% elif report_type == 'needs' %}
+                Потребности - Кабинет {{ cab_num }}
+            {% elif report_type == 'turnover' %}
+                Оборачиваемость - Кабинет {{ cab_num }}
+            {% else %}
+                Отчет - Кабинет {{ cab_num }}
+            {% endif %}
+        </h4>
+        <p class="mb-0"><strong>Период данных:</strong> с {{ date_from|format_date_string|default:"..." }} по {{ date_to|format_date_string|default:"..." }}</p>
+        <p class="mb-0">Найдено записей: {{ report_data.report_data|length|add:"-1" }}</p>
+    </div>
+
+    <div class="table-responsive">
+        <table id="reportTable" class="table table-bordered display" style="width:100%">
+            <thead class="my-custom-header">
+                {% if report_type == 'stocks' %}
+                <!-- Заголовок для остатков -->
+                <tr class="group-header">
+                    <th colspan="3" style="border-right: 2px solid #dee2e6;"></th>
+                    {% for group in report_data.warehouse_groups %}
+                    <th colspan="{{ group.colspan }}" style="text-align: center; background-color: {{ group.name|get_cluster_color }}; border-right: 2px solid #dee2e6;">
+                        {{ group.name }}
+                    </th>
+                    {% endfor %}
+                    <th style="text-align: center; background-color: #c3e6cb;">
+                        ИТОГО
+                    </th>
+                </tr>
+                <tr>
+                    <th style="border-right: 2px solid #dee2e6;">Артикул WB</th>
+                    <th style="border-right: 2px solid #dee2e6;">Артикул продавца</th>
+                    <th style="border-right: 2px solid #dee2e6; max-width: 200px !important;">Название</th>
+                    {% for group in report_data.warehouse_groups %}
+                        {% for warehouse in group.warehouses %}
+                        <th style="background-color: {{ group.name|get_cluster_color_light }}; writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 40px; max-width: 40px; white-space: nowrap; border-right: {% if forloop.last %}2px solid #dee2e6{% else %}1px solid #dee2e6{% endif %};">
+                            <span style="display: inline-block; padding: 5px 0;">{{ warehouse }}</span>
+                        </th>
+                        {% endfor %}
+                    {% endfor %}
+                    <th class="table-primary" style="writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 50px; max-width: 40px; white-space: nowrap;">
+                        <span style="display: inline-block; padding: 5px 0;">ВСЕГО</span>
+                    </th>
+                </tr>
+                {% elif report_type == 'orders' %}
+                <!-- Заголовок для заказов -->
+                <tr>
+                    <th>Артикул WB</th>
+                    <th>Артикул продавца</th>
+                    {% for region in report_data.regions %}
+                    <th style="background-color: {{ region|get_cluster_color }};">{{ region }}</th>
+                    {% endfor %}
+                    <th class="table-primary">ВСЕГО</th>
+                </tr>
+                {% elif report_type == 'needs' %}
+                <!-- Заголовок для потребностей (упрощенный) -->
+                <tr>
+                    <th>Артикул WB</th>
+                    <th style="max-width: 200px;">Артикул продавца</th>
+                    <th style="max-width: 200px;">Название</th>
+                    <!-- Потребности по регионам -->
+                    {% for region in report_data.regions %}
+                    <th style="background-color: {{ region|get_cluster_color }};">{{ region }}</th>
+                    {% endfor %}
+                    <th class="table-primary">ВСЕГО</th>
+                </tr>
+                {% elif report_type == 'turnover' %}
+                    <tr>
+                        <th style="border-right: 2px solid #dee2e6;"></th>
+                        <th style="border-right: 2px solid #dee2e6;"></th>
+                        <th style="border-right: 2px solid #dee2e6;"></th>
+                        <!-- Для каждого кластера: остатки, заказы, оборачиваемость -->
+                        {% for cluster in report_data.clusters %}
+                        <th colspan="3" style="text-align: center; background-color: {{ cluster|get_cluster_color }}; border-right: 2px solid #dee2e6;">
+                            {{ cluster }}
+                        </th>
+                        {% endfor %}
+                        <th colspan="3" style="text-align: center; background-color: #c3e6cb;">
+                            ИТОГО
+                        </th>
+                    </tr>
+                    <tr>
+                        <th>Артикул WB</th>
+                        <th style="max-width: 200px;">Артикул продавца</th>
+                        <th style="max-width: 200px;">Название</th>
+                        {% for cluster in report_data.clusters %}
+                            <th style="writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 40px; max-width: 40px; white-space: nowrap;">Ост</th>
+                            <th style="writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 40px; max-width: 40px; white-space: nowrap;">Заказы</th>
+                            <th style="writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 40px; max-width: 40px; white-space: nowrap; border-right: 2px solid #dee2e6;">Обор</th>
+                        {% endfor %}
+                        <th class="table-primary" style="writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 40px; max-width: 40px; white-space: nowrap;">Ост</th>
+                        <th class="table-primary" style="writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 40px; max-width: 40px; white-space: nowrap;">Заказы</th>
+                        <th class="table-primary" style="writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 40px; max-width: 40px; white-space: nowrap;">Обор</th>
+                    </tr>
+                {% endif %}
+            </thead>
+            <tbody>
+                {% if report_type == 'stocks' %}
+                <!-- Данные для остатков -->
+                {% for nm_id, data in report_data.report_data.items %}
+                <tr {% if nm_id == 'total' %}class="table-total-row"{% endif %}>
+                    <td style="border-right: 2px solid #dee2e6; text-align: center; vertical-align: middle;">{% if nm_id != 'total' %}{{ nm_id }}{% endif %}</td>
+                    <td style="border-right: 2px solid #dee2e6; text-align: center; vertical-align: middle;">{{ data.supplier_article }}</td>
+                    <td style="border-right: 2px solid #dee2e6; text-align: center; vertical-align: middle; max-width: 200px !important; word-wrap: break-word; white-space: normal;">{{ data.subject }}</td>
+                    {% for group in report_data.warehouse_groups %}
+                        {% for warehouse in group.warehouses %}
+                        {% with value=data.warehouses|get_item:warehouse|default:0 %}
+                        <td style="background-color: {% if value == 0 %}#c7c7c7ff{% else %}{{ group.name|get_cluster_color_light }}{% endif %}; text-align: center; border-right: {% if forloop.last %}2px solid #dee2e6{% else %}1px solid #dee2e6{% endif %};">
+                            {{ value }}
+                        </td>
+                        {% endwith %}
+                        {% endfor %}
+                    {% endfor %}
+                    <td class="table-primary" style="text-align: center;"><strong>{{ data.total|default:0 }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ report_data.all_warehouses|length|add:4 }}" class="text-center text-muted">
+                        Нет данных для отображения
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% elif report_type == 'orders' %}
+                <!-- Данные для заказов -->
+                {% for nm_id, data in report_data.report_data.items %}
+                <tr {% if nm_id == 'total' %}class="table-total-row"{% endif %}>
+                    <td style="text-align: center; vertical-align: middle;">{% if nm_id != 'total' %}{{ nm_id }}{% endif %}</td>
+                    <td style="text-align: center; vertical-align: middle;">{{ data.supplier_article }}</td>
+                    {% for region in report_data.regions %}
+                    {% with value=data.regions|get_item:region|default:0 %}
+                    <td style="background-color: {% if value == 0 %}#c7c7c7ff{% else %}{{ region|get_cluster_color_light }}{% endif %}; text-align: center; vertical-align: middle;">
+                        {{ value }}
+                    </td>
+                    {% endwith %}
+                    {% endfor %}
+                    <td class="table-primary"><strong>{{ data.total|default:0 }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ report_data.regions|length|add:3 }}" class="text-center text-muted">
+                        Нет данных для отображения
+                    </td>
+                </tr>
+                {% endfor %}
+
+                {% elif report_type == 'needs' %}
+                <!-- Данные для потребностей (только потребности) -->
+                {% for nm_id, data in report_data.report_data.items %}
+                <tr {% if nm_id == 'total' %}class="table-total-row"{% endif %}>
+                    <td style="text-align: center; vertical-align: middle;">{% if nm_id != 'total' %}{{ nm_id }}{% endif %}</td>
+                    <td style="text-align: center; vertical-align: middle;">{{ data.supplier_article }}</td>
+                    <td style="text-align: center; vertical-align: middle;">{{ data.subject }}</td>
+                    
+                    <!-- Потребности по регионам -->
+                    {% for region in report_data.regions %}
+                    {% with value=data.needs|get_item:region|default:0 %}
+                    <td style="background-color: {% if value == 0 %}#c7c7c7ff{% else %}{{ region|get_cluster_color_light }}{% endif %}; text-align: center; vertical-align: middle;">
+                        <strong>{{ value }}</strong>
+                    </td>
+                    {% endwith %}
+                    {% endfor %}
+                    
+                    <!-- Итого потребности -->
+                    <td class="table-primary"><strong>{{ data.needs_total|default:0 }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ report_data.regions|length|add:4 }}" class="text-center text-muted">
+                        Нет данных для отображения
+                    </td>
+                </tr>
+                {% endfor %}
+                <!-- Данные для оборачиваемости -->
+                {% elif report_type == 'turnover' %}
+                {% for nm_id, data in report_data.report_data.items %}
+                <tr {% if nm_id == 'total' %}class="table-total-row"{% endif %}>
+                    <td style="border-right: 2px solid #dee2e6; text-align: center; vertical-align: middle;">{% if nm_id != 'total' %}{{ nm_id }}{% endif %}</td>
+                    <td style="border-right: 2px solid #dee2e6; text-align: center; vertical-align: middle;">{{ data.supplier_article }}</td>
+                    <td style="border-right: 2px solid #dee2e6; text-align: center; vertical-align: middle; max-width: 200px !important; word-wrap: break-word; white-space: normal;">{{ data.subject }}</td>
+                    
+                    <!-- Данные по кластерам: остатки, заказы, оборачиваемость -->
+                    {% for cluster in report_data.clusters %}
+                        {% with cluster_data=data.clusters|get_item:cluster %}
+                        <td style="background-color: {% if cluster_data.stocks == 0 %}#c7c7c7ff{% else %}{{ cluster|get_cluster_color_light }}{% endif %}; text-align: center; vertical-align: middle;">{{ cluster_data.stocks|default:0 }}</td>
+                        <td style="background-color: {% if cluster_data.orders == 0 %}#c7c7c7ff{% else %}{{ cluster|get_cluster_color_light }}{% endif %}; text-align: center; vertical-align: middle;">{{ cluster_data.orders|default:0 }}</td>
+                        <td style="background-color: {% if cluster_data.turnover == 0 %}#c7c7c7ff{% else %}{{ cluster|get_cluster_color_light }}{% endif %}; text-align: center; vertical-align: middle; border-right: 2px solid #dee2e6;"><strong>{{ cluster_data.turnover|floatformat:0|default:0 }}</strong></td>
+                        {% endwith %}
+                    {% endfor %}
+                    
+                    <!-- Итоговые значения -->
+                    <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_stocks|default:0 }}</strong></td>
+                    <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_orders|default:0 }}</strong></td>
+                    <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_turnover|floatformat:0|default:0 }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ report_data.clusters|length|multiply:3|add:4 }}" class="text-center text-muted">
+                        Нет данных для отображения
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <h5>Нет данных для отображения</h5>
+        <p class="mb-0">report_data: {{ report_data|default:"не определен" }}</p>
+        <p class="mb-0">report_type: {{ report_type|default:"не определен" }}</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: transparent;
+}
+.table-total-row {
+    background-color: #e9ecef !important;
+    font-weight: bold;
+}
+
+/* Стили для вертикального текста */
+.vertical-text {
+    writing-mode: vertical-lr;
+    transform: rotate(180deg);
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Убедимся, что заголовки правильно отображаются в DataTables */
+table.dataTable thead th {
+    vertical-align: middle;
+}
+
+/* Фиксируем ширину столбцов для лучшего отображения */
+#reportTable th {
+    min-width: 40px;
+    max-width: 40px;
+}
+
+/* Ограничение ширины для столбца "Название" в остатках */
+#reportTable td:nth-child(3),
+#reportTable th:nth-child(3) {
+    max-width: 200px !important;
+}
+</style>

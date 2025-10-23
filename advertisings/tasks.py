@@ -14,6 +14,7 @@ from .views import (
     process_zip_report
 )
 from .google_sheets import sheets_exporter
+from celery.exceptions import MaxRetriesExceededError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('advertisings.tasks')
@@ -32,182 +33,375 @@ url_create_report = 'https://seller-analytics-api.wildberries.ru/api/v2/nm-repor
 url_orders = 'https://statistics-api.wildberries.ru/api/v1/supplier/orders' # GET
 url_sales = 'https://statistics-api.wildberries.ru/api/v1/supplier/sales' # GET  # НОВЫЙ URL
 
-@shared_task
-def get_and_save_advertisings_stats():
+# Список временных ошибок WB API, при которых стоит повторять запрос
+TEMPORARY_WB_ERRORS = [429, 500, 502, 503, 504]
+# Максимальное количество повторных попыток для отдельных API запросов
+MAX_API_RETRIES = 3
+# Задержка между повторными попытками API запросов (в секундах)
+API_RETRY_DELAY = 60
 
-    for jwt_advertisings in jwts_advertisings:
+def make_request_with_retry(url, method='GET', headers=None, params=None, json_data=None, max_retries=MAX_API_RETRIES, api_retry_delay=API_RETRY_DELAY):
+    """
+    Универсальная функция для выполнения запросов с повторными попытками при временных ошибках
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            if method.upper() == 'GET':
+                response = requests.get(url, headers=headers, params=params, timeout=30)
+            elif method.upper() == 'POST':
+                response = requests.post(url, headers=headers, json=json_data, params=params, timeout=30)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
+            
+            # Если запрос успешен или ошибка не временная - возвращаем результат
+            if response.status_code == 200 or response.status_code not in TEMPORARY_WB_ERRORS:
+                return response
+            
+            # Если это временная ошибка и есть еще попытки
+            if attempt < max_retries and response.status_code in TEMPORARY_WB_ERRORS:
+                logger.warning(f"Временная ошибка {response.status_code} при запросе к {url}. Попытка {attempt + 1}/{max_retries}. Повтор через {api_retry_delay} сек.")
+                time.sleep(api_retry_delay)
+                continue
+                
+            # Если превышено количество попыток или ошибка не временная
+            return response
+            
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            if attempt < max_retries:
+                logger.warning(f"Сетевая ошибка {type(e).__name__} при запросе к {url}. Попытка {attempt + 1}/{max_retries}. Повтор через {api_retry_delay} сек.")
+                time.sleep(api_retry_delay)
+            else:
+                logger.error(f"Превышено количество попыток для запроса к {url}. Ошибка: {e}")
+                raise
+
+# docker-compose exec web python manage.py shell -c "from advertisings.tasks import get_and_save_advertisings_stats; get_and_save_advertisings_stats()"
+# Запуск функции get_and_save_advertisings_stats через работающий Docker Compose
+
+@shared_task(bind=True, max_retries=10, default_retry_delay=1800)  # 30 минут задержки
+def get_and_save_advertisings_stats(self):
+    """
+    Задача для получения и сохранения статистики рекламы с retry-логикой
+    """
+    try:
+        logger.info(f"Запуск задачи get_and_save_advertisings_stats (попытка {self.request.retries + 1}/10)")
+        
+        for jwt_advertisings in jwts_advertisings:
+
+            try:
+
+                headers_advertisings = {
+                    'Authorization':jwt_advertisings
+                }
+
+                cab_num = jwts_advertisings.index(jwt_advertisings) + 1
+
+                random_uuid = uuid.uuid4()
+                uuid_string = str(random_uuid)
+                search_advertIds = []
+                rack_advertIds = []
+
+                today = datetime.date.today()
+                yesterday = today - datetime.timedelta(days=1)
+
+                date_start_str = yesterday.strftime('%Y-%m-%d')
+                date_end_str = yesterday.strftime('%Y-%m-%d')
+
+                # Получаем данные заказов и продаж параллельно
+                orders_data = get_orders_data(date_start_str, headers_advertisings)
+                sales_data = get_sales_data(date_start_str, headers_advertisings)
+                
+                avg_spp_by_date_article = calculate_avg_spp(orders_data)
+                buyouts_by_date_article = calculate_buyouts_from_sales(sales_data)
+
+                # Используем функцию с повторными попытками
+                all_campaigns_response = make_request_with_retry(
+                    url_all_campaigns, 
+                    method='GET', 
+                    headers=headers_advertisings
+                )
+                
+                if all_campaigns_response.status_code != 200:
+                    logger.warning(f"Статус ошибки: {all_campaigns_response.status_code}")
+                    # Если временная ошибка - пробрасываем исключение для retry всей задачи
+                    if all_campaigns_response.status_code in TEMPORARY_WB_ERRORS:
+                        raise TemporaryAPIError(f"Временная ошибка WB API при получении списка кампаний: {all_campaigns_response.status_code}")
+                    else:
+                        raise Exception(f"Ошибка получения списка кампаний: {all_campaigns_response.status_code}")
+                
+                all_campaigns_list = all_campaigns_response.json().get('adverts', [])
+
+                for active_campaign in all_campaigns_list:
+                    if active_campaign['status'] in (9, 11):
+                        if active_campaign['type'] == 9: # Поисковые кампании
+                            for ids in active_campaign['advert_list']:
+                                search_advertIds.append(ids['advertId'])
+                        elif active_campaign['type'] == 8: # Кампании на полке
+                            for ids in active_campaign['advert_list']:
+                                rack_advertIds.append(ids['advertId'])
+
+                id_list = []
+
+                for advert_id in search_advertIds:
+                    id_list.append(str(advert_id))
+                
+                for advert_id in rack_advertIds:
+                    id_list.append(str(advert_id))
+
+                response = []
+
+                for i in range(0, len(id_list), 100):
+
+                    batch = id_list[i:i+100]
+
+                    params_stats_response = {
+                        "ids": ','.join(batch),
+                        "beginDate": date_start_str,
+                        "endDate": date_end_str
+                    }
+                    
+                    # Используем функцию с повторными попытками
+                    results = make_request_with_retry(
+                        url_info_campaign_stats,
+                        method='GET',
+                        headers=headers_advertisings,
+                        params=params_stats_response
+                    )
+                    
+                    if results.status_code == 200:
+                        response.extend(results.json())
+                    else:
+                        logger.warning(f'Ошибка №{results.status_code} при получении статистики кабинета №{cab_num}: {results.json()}')
+                        # Если временная ошибка - пробрасываем исключение для retry всей задачи
+                        if results.status_code in TEMPORARY_WB_ERRORS:
+                            raise TemporaryAPIError(f"Временная ошибка WB API при получении статистики кампаний: {results.status_code}")
+                        else:
+                            raise Exception(f"Ошибка получения статистики кампаний: {results.status_code}")
+
+                search_campaign = []
+                if search_advertIds:
+                    search_campaign = make_batched_requests_with_retry(url_info_campaign_nmID, search_advertIds, headers_advertisings)
+
+                rack_campaign = []
+                if rack_advertIds:
+                    rack_campaign = make_batched_requests_with_retry(url_info_campaign_nmID, rack_advertIds, headers_advertisings)
+
+                # Собираем все артикулы для связи
+                all_articles = set()
+                article_advert_map = {}  # Маппинг артикул -> advertId
+                
+                for camp in search_campaign:
+                    if 'unitedParams' in camp and camp['unitedParams']:
+                        article_num = camp['unitedParams'][0]['nms'][0]
+                        all_articles.add(article_num)
+                        article_advert_map[camp['advertId']] = article_num
+                
+                for camp in rack_campaign:
+                    if 'autoParams' in camp:
+                        article_num = camp['autoParams']['nms'][0]
+                        all_articles.add(article_num)
+                        article_advert_map[camp['advertId']] = article_num
+
+                for resp in response:
+                    advert_id = resp['advertId']
+                    if advert_id in article_advert_map:
+                        resp['article_number'] = article_advert_map[advert_id]
+
+                params_for_creaete_report = {
+                        "id": uuid_string,
+                        "reportType": "DETAIL_HISTORY_REPORT",
+                        "userReportName": "Card report",
+                        "params": {
+                            "nmIDs": [],
+                            "startDate": date_start_str,
+                            "endDate": date_end_str,
+                            "timezone": "Europe/Moscow",
+                            "aggregationLevel": "day",
+                            "skipDeletedNm": False
+                            }
+                    }
+                
+                # Используем функцию с повторными попытками
+                create_response = make_request_with_retry(
+                    url_create_report,
+                    method='POST',
+                    headers=headers_advertisings,
+                    json_data=params_for_creaete_report
+                )
+                
+                if create_response.status_code != 200:
+                    logger.warning(f"Ошибка при создании отчета: {create_response.status_code}")
+                    logger.warning(f"Детали ошибки: {create_response.json().get('detail', 'Неизвестная ошибка')}")
+                    # Если временная ошибка - пробрасываем исключение для retry всей задачи
+                    if create_response.status_code in TEMPORARY_WB_ERRORS:
+                        raise TemporaryAPIError(f"Временная ошибка WB API при создании отчета: {create_response.status_code}")
+                    else:
+                        raise Exception(f"Ошибка создания отчета: {create_response.status_code}")
+                
+                time.sleep(10)
+
+                url_get_report = f'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads/file/{uuid_string}' # GET
+                
+                # Используем функцию с повторными попытками
+                response_report = make_request_with_retry(
+                    url_get_report,
+                    method='GET',
+                    headers=headers_advertisings
+                )
+                
+                if response_report.status_code != 200:
+                    logger.warning(f"Ошибка при получении отчета: {response_report.status_code}")
+                    logger.warning(f"Детали ошибки: {response_report.json().get('detail', 'Неизвестная ошибка')}")
+                    report_json = None
+                else:
+                    report_json = process_zip_report(response=response_report)
+                    logger.info(f"Данные отчета: {report_json[:1] if report_json else 'None'}")
+
+                if report_json and isinstance(report_json, list):
+                    for report_item in report_json:
+                        nm_id = report_item.get('nmID')
+                        if nm_id:
+                            all_articles.add(str(nm_id))
+
+                processed_data = process_api_data(
+                    response=response, 
+                    search_advertId=search_advertIds, 
+                    rack_advertId=rack_advertIds,
+                    report_data=report_json,
+                    all_articles=list(all_articles)
+                )
+
+                processed_data['response'] = response
+                processed_data['report_data'] = report_json
+                processed_data['search_advertId'] = search_advertIds
+                processed_data['rack_advertId'] = rack_advertIds
+
+                processed_data_with_spp = add_spp_to_processed_data(processed_data, avg_spp_by_date_article)
+
+                # Сохраняем данные в модель Statics для всех дат
+                save_to_statics_model(processed_data_with_spp, avg_spp_by_date_article, cab_num, buyouts_by_date_article)  # ДОБАВЛЕН ПАРАМЕТР
+
+                if jwts_advertisings.index(jwt_advertisings) < len(jwts_advertisings) - 1:
+                    logger.info(f"Пауза между кабинетами 60 секунд")
+                    time.sleep(60)
+                    
+            except TemporaryAPIError as e:
+                # Пробрасываем временные ошибки API для retry всей задачи
+                logger.warning(f"Временная ошибка API при обработке кабинета {cab_num}: {e}")
+                raise
+            except Exception as e:
+                logger.error(f"Ошибка при обработке кабинета {cab_num}: {e}")
+                # Для других ошибок также пробрасываем исключение для retry
+                raise
 
         try:
-
-            headers_advertisings = {
-                'Authorization':jwt_advertisings
-            }
-
-            cab_num = jwts_advertisings.index(jwt_advertisings) + 1
-
-            random_uuid = uuid.uuid4()
-            uuid_string = str(random_uuid)
-            search_advertIds = []
-            rack_advertIds = []
-
-            today = datetime.date.today()
-            yesterday = today - datetime.timedelta(days=1)
-
-            date_start_str = yesterday.strftime('%Y-%m-%d')
-            date_end_str = yesterday.strftime('%Y-%m-%d')
-
-            # Получаем данные заказов и продаж параллельно
-            orders_data = get_orders_data(date_start_str, headers_advertisings)
-            sales_data = get_sales_data(date_start_str, headers_advertisings)
-            
-            avg_spp_by_date_article = calculate_avg_spp(orders_data)
-            buyouts_by_date_article = calculate_buyouts_from_sales(sales_data)
-
-            all_campaigns_response = requests.get(url_all_campaigns, headers=headers_advertisings)
-            if all_campaigns_response.status_code != 200:
-                logger.info(f"Статус ошибки: {all_campaigns_response.status_code}")
-                return None
-            all_campaigns_list = all_campaigns_response.json().get('adverts', [])
-
-            for active_campaign in all_campaigns_list:
-                if active_campaign['status'] in (9, 11):
-                    if active_campaign['type'] == 9: # Поисковые кампании
-                        for ids in active_campaign['advert_list']:
-                            search_advertIds.append(ids['advertId'])
-                    elif active_campaign['type'] == 8: # Кампании на полке
-                        for ids in active_campaign['advert_list']:
-                            rack_advertIds.append(ids['advertId'])
-
-            id_list = []
-
-            for advert_id in search_advertIds:
-                id_list.append(str(advert_id))
-            
-            for advert_id in rack_advertIds:
-                id_list.append(str(advert_id))
-
-            response = []
-
-            for i in range(0, len(id_list), 100):
-
-                batch = id_list[i:i+100]
-
-                params_stats_response = {
-                    "ids": ','.join(batch),
-                    "beginDate": date_start_str,
-                    "endDate": date_end_str
-                }
-                
-                results = requests.get(url_info_campaign_stats, headers=headers_advertisings, params=params_stats_response)
-                time.sleep(60)
-                
-                if results.status_code == 200:
-                    response.extend(results.json())
-                else:
-                    logger.warning(f'Ошибка №{results.status_code} при получении статистики кабинета №{cab_num}: {results.json()}')
-                    return None
-
-            search_campaign = []
-            if search_advertIds:
-                search_campaign = make_batched_requests(url_info_campaign_nmID, search_advertIds, headers_advertisings)
-
-            rack_campaign = []
-            if rack_advertIds:
-                rack_campaign = make_batched_requests(url_info_campaign_nmID, rack_advertIds, headers_advertisings)
-
-            # Собираем все артикулы для связи
-            all_articles = set()
-            article_advert_map = {}  # Маппинг артикул -> advertId
-            
-            for camp in search_campaign:
-                if 'unitedParams' in camp and camp['unitedParams']:
-                    article_num = camp['unitedParams'][0]['nms'][0]
-                    all_articles.add(article_num)
-                    article_advert_map[camp['advertId']] = article_num
-            
-            for camp in rack_campaign:
-                if 'autoParams' in camp:
-                    article_num = camp['autoParams']['nms'][0]
-                    all_articles.add(article_num)
-                    article_advert_map[camp['advertId']] = article_num
-
-            for resp in response:
-                advert_id = resp['advertId']
-                if advert_id in article_advert_map:
-                    resp['article_number'] = article_advert_map[advert_id]
-
-            params_for_creaete_report = {
-                    "id": uuid_string,
-                    "reportType": "DETAIL_HISTORY_REPORT",
-                    "userReportName": "Card report",
-                    "params": {
-                        "nmIDs": [],
-                        "startDate": date_start_str,
-                        "endDate": date_end_str,
-                        "timezone": "Europe/Moscow",
-                        "aggregationLevel": "day",
-                        "skipDeletedNm": False
-                        }
-                }
-            
-            create_response = requests.post(url_create_report, headers=headers_advertisings, json=params_for_creaete_report)
-            if create_response.status_code != 200:
-                logger.warning(f"Ошибка при создании отчета: {create_response.status_code}")
-                logger.warning(f"Детали ошибки: {create_response.json().get('detail', 'Неизвестная ошибка')}")
-                return None
-            
-            time.sleep(10)
-
-            url_get_report = f'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads/file/{uuid_string}' # GET
-            response_report = requests.get(url_get_report, headers=headers_advertisings)
-            if response_report.status_code != 200:
-                logger.warning(f"Ошибка при получении отчета: {response_report.status_code}")
-                logger.warning(f"Детали ошибки: {response_report.json().get('detail', 'Неизвестная ошибка')}")
-                report_json = None
+            # Используем безопасный метод
+            success = sheets_exporter.export_statistics_to_sheets_safe(days_back=7)
+            if success:
+                logger.info("Данные успешно экспортированы в Google Sheets с заголовками")
             else:
-                report_json = process_zip_report(response=response_report)
-                logger.info(f"Данные отчета: {report_json[:1] if report_json else 'None'}")
-
-            processed_data = process_api_data(
-                response=response, 
-                search_advertId=search_advertIds, 
-                rack_advertId=rack_advertIds,
-                report_data=report_json,
-                all_articles=list(all_articles)
-            )
-
-            processed_data['response'] = response
-            processed_data['report_data'] = report_json
-            processed_data['search_advertId'] = search_advertIds
-            processed_data['rack_advertId'] = rack_advertIds
-
-            processed_data_with_spp = add_spp_to_processed_data(processed_data, avg_spp_by_date_article)
-
-            # Сохраняем данные в модель Statics для всех дат
-            save_to_statics_model(processed_data_with_spp, avg_spp_by_date_article, cab_num, buyouts_by_date_article)  # ДОБАВЛЕН ПАРАМЕТР
-
-            if jwts_advertisings.index(jwt_advertisings) < len(jwts_advertisings) - 1:
-                logger.info(f"Пауза между кабинетами 60 секунд")
-                time.sleep(60)
-                
+                logger.warning("Не удалось экспортировать данные в Google Sheets")
+            return success
         except Exception as e:
-            logger.error(f"Ошибка при обработке кабинета {jwts_advertisings.index(jwt_advertisings) + 1}: {e}")
-            continue
+            logger.error(f"Ошибка при экспорте в Google Sheets: {e}")
+            # Не пробрасываем исключение для экспорта, так как основная задача выполнена
+            return True
+            
+    except TemporaryAPIError as exc:
+        # Обработка временных ошибок WB API
+        logger.error(f"Временная ошибка WB API в задаче get_and_save_advertisings_stats (попытка {self.request.retries + 1}/10): {exc}")
+        
+        # Проверяем, не превышено ли максимальное количество попыток
+        if self.request.retries >= self.max_retries:
+            logger.error(f"Достигнуто максимальное количество попыток ({self.max_retries}). Задача завершена с ошибкой.")
+            send_admin_notification(f"Задача get_and_save_advertisings_stats завершилась с ошибкой после {self.max_retries} попыток: {exc}")
+            raise MaxRetriesExceededError(exc)
+        
+        # Вычисляем экспоненциальную задержку (30 минут * 2^retry_count)
+        delay = self.default_retry_delay * (2 ** self.request.retries)
+        logger.info(f"Повторный запуск задачи через {delay} секунд (попытка {self.request.retries + 2})")
+        
+        # Повторяем задачу с задержкой
+        raise self.retry(exc=exc, countdown=delay)
+        
+    except Exception as exc:
+        logger.error(f"Критическая ошибка в задаче get_and_save_advertisings_stats (попытка {self.request.retries + 1}/10): {exc}")
+        
+        # Проверяем, не превышено ли максимальное количество попыток
+        if self.request.retries >= self.max_retries:
+            logger.error(f"Достигнуто максимальное количество попыток ({self.max_retries}). Задача завершена с ошибкой.")
+            send_admin_notification(f"Задача get_and_save_advertisings_stats завершилась с ошибкой после {self.max_retries} попыток: {exc}")
+            raise MaxRetriesExceededError(exc)
+        
+        # Вычисляем экспоненциальную задержку (30 минут * 2^retry_count)
+        delay = self.default_retry_delay * (2 ** self.request.retries)
+        logger.info(f"Повторный запуск задачи через {delay} секунд (попытка {self.request.retries + 2})")
+        
+        # Повторяем задачу с задержкой
+        raise self.retry(exc=exc, countdown=delay)
 
-@shared_task
-def export_statistics_to_google_sheets():
-    """Задача для экспорта статистики в Google Sheets"""
-    try:
-        # Используем безопасный метод
-        success = sheets_exporter.export_statistics_to_sheets_safe(days_back=7)
-        if success:
-            logger.info("Данные успешно экспортированы в Google Sheets с заголовками")
-        else:
-            logger.warning("Не удалось экспортировать данные в Google Sheets")
-        return success
-    except Exception as e:
-        logger.error(f"Ошибка при экспорте в Google Sheets: {e}")
-        return False
+class TemporaryAPIError(Exception):
+    """Исключение для временных ошибок API"""
+    pass
+
+def make_batched_requests_with_retry(url, advert_ids, headers, batch_size=100, max_retries=MAX_API_RETRIES):
+    """
+    Версия make_batched_requests с повторными попытками при временных ошибках
+    """
+    all_results = []
+    
+    for i in range(0, len(advert_ids), batch_size):
+        batch = advert_ids[i:i + batch_size]
+        
+        for attempt in range(max_retries + 1):
+            try:
+                response = requests.post(url, headers=headers, json=batch, timeout=30)
+                
+                if response.status_code == 200:
+                    all_results.extend(response.json())
+                    break
+                elif response.status_code in TEMPORARY_WB_ERRORS and attempt < max_retries:
+                    logger.warning(f"Временная ошибка {response.status_code} при batch запросе. Попытка {attempt + 1}/{max_retries}. Повтор через {API_RETRY_DELAY} сек.")
+                    time.sleep(API_RETRY_DELAY)
+                else:
+                    logger.error(f"Ошибка при batch запросе: {response.status_code}")
+                    break
+                    
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                if attempt < max_retries:
+                    logger.warning(f"Сетевая ошибка {type(e).__name__} при batch запросе. Попытка {attempt + 1}/{max_retries}. Повтор через {API_RETRY_DELAY} сек.")
+                    time.sleep(API_RETRY_DELAY)
+                else:
+                    logger.error(f"Превышено количество попыток для batch запроса. Ошибка: {e}")
+                    break
+    
+    return all_results
+
+def send_admin_notification(message):
+    """
+    Функция для отправки уведомления администратору
+    Можно интегрировать с Telegram, Email и т.д.
+    """
+    logger.error(f"УВЕДОМЛЕНИЕ АДМИНИСТРАТОРУ: {message}")
+    # Здесь можно добавить отправку в Telegram или по email
+    # Например:
+    # telegram_send_message(message)
+    pass
+    
+
+# @shared_task
+# def export_statistics_to_google_sheets():
+#     """Задача для экспорта статистики в Google Sheets"""
+#     try:
+#         # Используем безопасный метод
+#         success = sheets_exporter.export_statistics_to_sheets_safe(days_back=7)
+#         if success:
+#             logger.info("Данные успешно экспортированы в Google Sheets с заголовками")
+#         else:
+#             logger.warning("Не удалось экспортировать данные в Google Sheets")
+#         return success
+#     except Exception as e:
+#         logger.error(f"Ошибка при экспорте в Google Sheets: {e}")
+#         return False
 
 def get_sales_data(date_from, headers_advertisings, max_requests=10):
     """
@@ -227,7 +421,14 @@ def get_sales_data(date_from, headers_advertisings, max_requests=10):
             }
             
             logger.info(f"Запрос данных о продажах {request_count} с dateFrom: {last_change_date}")
-            response = requests.get(url_sales, headers=headers_advertisings, params=params)
+            
+            # Используем функцию с повторными попытками
+            response = make_request_with_retry(
+                url_sales,
+                method='GET',
+                headers=headers_advertisings,
+                params=params
+            )
             
             if response.status_code != 200:
                 logger.warning(f"Ошибка при получении продаж: {response.status_code} - {response.text}")

@@ -25,5 +25,6 @@ urlpatterns = [
     path('advertisings/', include(('advertisings.urls', 'advertisings'))),
     path('product_cards/', include(('product_cards.urls', 'product_cards'))),
     path('wheel/', include(('wheel.urls', 'wheel'))),
+    path('leftovers/', include(('leftovers.urls', 'leftovers'))),
     path('', home, name='home'),
 ]

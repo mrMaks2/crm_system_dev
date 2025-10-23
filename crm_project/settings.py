@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'advertisings',
     'product_cards',
     'wheel',
+    'leftovers',
 ]
 
 MIDDLEWARE = [
@@ -167,8 +168,45 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+# Улучшенные настройки Celery для быстрого запуска задач
 CELERY_BROKER_URL = 'redis://redis:6379/0'
 CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+
+# Критически важные настройки для быстрого запуска
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_CONNECTION_RETRY = True
+CELERY_BROKER_CONNECTION_MAX_RETRIES = 10
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    'visibility_timeout': 3600,
+    'socket_keepalive': True,
+    'socket_timeout': 10,  # Уменьшено с 30 до 10
+    'socket_connect_timeout': 3,  # Добавлено
+    'retry_on_timeout': True,
+    'max_connections': 10,  # Уменьшено с 20
+}
+
+# Оптимизация для быстрого отклика
+CELERY_TASK_ACKS_LATE = False  # Изменено на False для быстрого подтверждения
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_ALWAYS_EAGER = False
+CELERY_TASK_CREATE_MISSING_QUEUES = True
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_DEFAULT_ROUTING_KEY = 'default'
+
+# Оптимизация worker для быстрого запуска
+CELERY_WORKER_CONCURRENCY = 4  # Уменьшено с 8
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 100  # Уменьшено с 100
+CELERY_WORKER_SEND_TASK_EVENTS = True
+CELERY_TASK_SEND_SENT_EVENT = True
+
+# Уменьшение времени ожидания для результатов
+CELERY_RESULT_EXPIRES = 1800  # 30 минут вместо 60
+CELERY_EVENT_QUEUE_EXPIRES = 1800
+
+# Настройки для быстрого pool
+CELERY_BROKER_POOL_LIMIT = 5  # Уменьшено с 10
+CELERY_BROKER_HEARTBEAT = 10  # Добавлено
+
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -183,3 +221,8 @@ CACHES = {
         }
     }
 }
+
+SESSION_COOKIE_AGE = 3600
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False

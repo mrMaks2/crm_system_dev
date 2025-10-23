@@ -1,0 +1,448 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+{% block title %}Остатки{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+    <form method="post" action="" id="reportForm">
+        {% csrf_token %}
+        <h4 class="mb-0 text-center">Отчеты по остаткам, заказам, потребностям и оборачиваемости</h4>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Тип отчета:</h6>
+                    <div class="form-group">
+                        <select name="{{ form.report_type.name }}" class="form-control" required>
+                            <option value="" disabled selected hidden>Тип отчета:</option>
+                            {% for choice in form.report_type.field.choices %}
+                                <option value="{{ choice.0 }}" 
+                                        {% if choice.0 == form.report_type.value %}selected{% endif %}>
+                                    {{ choice.1 }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.report_type.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.report_type.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12 my-2">
+                    <h6>Кабинет:</h6>
+                    <div class="form-group">
+                        <select name="{{ form.cab_num.name }}" class="form-control" required>
+                            <option value="" disabled selected hidden>Кабинет:</option>
+                            {% for choice in form.cab_num.field.choices %}
+                                <option value="{{ choice.0 }}" 
+                                        {% if choice.0 == form.cab_num.value %}selected{% endif %}>
+                                    {{ choice.1 }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.cab_num.errors %}
+                            <div class="text-danger small">
+                                {% for error in form.cab_num.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                {% if processing %}
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div> Формируем отчет
+                {% else %}
+                    Сформировать отчет
+                {% endif %}
+            </button>
+        </div>
+    </form>
+
+    {% if error %}
+        <div class="alert alert-danger mt-3">{{ error }}</div>
+    {% endif %}
+
+</div>
+
+<div id="reportTableContainer">
+    {% if report_data and report_data.report_data %}
+        {% include 'leftovers/stocks_orders_report_table.html' %}
+    {% endif %}
+</div>
+
+<!-- Подключение CSS и JS для DataTables с расширениями -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap4.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.bootstrap4.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/colreorder/1.6.2/css/colReorder.bootstrap4.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.bootstrap4.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedheader/3.3.2/css/fixedHeader.bootstrap4.min.css">
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap4.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.bootstrap4.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.colVis.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/colreorder/1.6.2/js/dataTables.colReorder.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.4.1/js/responsive.bootstrap4.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.70/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.70/vfs_fonts.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('reportForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const reportTableContainer = document.getElementById('reportTableContainer');
+        
+        // Создаем контейнер для алертов если его нет
+        function ensureAlertsContainer() {
+            let alertsContainer = document.getElementById('alertsContainer');
+            if (!alertsContainer) {
+                alertsContainer = document.createElement('div');
+                alertsContainer.id = 'alertsContainer';
+                document.querySelector('.container.mt-2').appendChild(alertsContainer);
+            }
+            return alertsContainer;
+        }
+
+        // Обработка отправки формы
+        if (form && submitBtn) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Запуск задачи...';
+                
+                clearAlerts();
+                showAlert('info', 'Инициализация задачи...');
+                
+                const formData = new FormData(form);
+                
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'processing') {
+                        showAlert('info', 'Задача запущена, ожидаем данные...');
+                        // Даем больше времени на инициализацию задачи
+                        setTimeout(() => {
+                            monitorTaskStatus(data.task_id, 0);
+                        }, 1000);
+                    } else if (data.status === 'error') {
+                        showAlert('error', data.error);
+                        enableSubmitButton();
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    showAlert('error', 'Произошла ошибка при отправке формы: ' + error.message);
+                    enableSubmitButton();
+                });
+            });
+        }
+
+        // Улучшенная функция отслеживания статуса задачи
+        function monitorTaskStatus(taskId, attempt = 0) {
+            const maxAttempts = 30; // Максимум 30 попыток (~2.5 минуты)
+            
+            // Прогрессивные интервалы в зависимости от попытки
+            const getCheckDelay = (attemptNum) => {
+                if (attemptNum < 3) return 1000;    // Первые 3 проверки: 1 сек
+                if (attemptNum < 8) return 2000;    // Следующие 5: 2 сек
+                if (attemptNum < 15) return 3000;   // Следующие 7: 3 сек
+                return 5000;                        // Остальные: 5 сек
+            };
+
+            const checkStatus = () => {
+                if (attempt >= maxAttempts) {
+                    showAlert('error', 'Превышено время ожидания выполнения задачи');
+                    enableSubmitButton();
+                    return;
+                }
+
+                const startTime = Date.now();
+                
+                fetch(`/leftovers/check_task_status/${taskId}/`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        const responseTime = Date.now() - startTime;
+                        console.log(`Проверка ${attempt + 1}: статус "${data.status}", время ответа: ${responseTime}ms`);
+                        
+                        if (data.status === 'completed') {
+                            showAlert('success', data.message);
+                            if (data.table_html) {
+                                displayReportTable(data.table_html);
+                                enableSubmitButton();
+                                // Даем время на рендеринг таблицы перед инициализацией DataTable
+                                setTimeout(() => initializeDataTable(), 100);
+                            } else {
+                                showAlert('error', 'Получены пустые данные таблицы');
+                                enableSubmitButton();
+                            }
+                            
+                        } else if (data.status === 'failed') {
+                            showAlert('error', data.error || 'Произошла ошибка при получении данных');
+                            enableSubmitButton();
+                            
+                        } else {
+                            // Показываем прогресс для длительных операций
+                            if (attempt > 5) {
+                                showAlert('info', `Получение данных... (проверка ${attempt + 1}/${maxAttempts})`);
+                            }
+                            
+                            const nextDelay = getCheckDelay(attempt);
+                            setTimeout(() => {
+                                monitorTaskStatus(taskId, attempt + 1);
+                            }, nextDelay);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`Ошибка при проверке статуса задачи (попытка ${attempt + 1}):`, error);
+                        
+                        // При сетевых ошибках увеличиваем интервал
+                        const errorDelay = Math.min(10000, 2000 * (attempt + 1));
+                        showAlert('warning', `Проблема с подключением, повторная попытка через ${errorDelay/1000} сек...`);
+                        
+                        setTimeout(() => {
+                            monitorTaskStatus(taskId, attempt + 1);
+                        }, errorDelay);
+                    });
+            };
+            
+            checkStatus();
+        }
+
+        // Функция отображения таблицы отчета
+        function displayReportTable(html) {
+            if (reportTableContainer) {
+                reportTableContainer.innerHTML = html;
+            }
+        }
+
+        // Функция инициализации DataTables
+        function initializeDataTable() {
+            const reportTable = document.getElementById('reportTable');
+            if (reportTable && typeof $.fn.DataTable !== 'undefined') {
+                // Уничтожаем существующую таблицу DataTable, если есть
+                if ($.fn.DataTable.isDataTable('#reportTable')) {
+                    $('#reportTable').DataTable().destroy();
+                    $('#reportTable').empty();
+                }
+                
+                // Конфигурация для таблицы с вертикальными заголовками
+                $('#reportTable').DataTable({
+                    "language": {
+                        "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/ru.json"
+                    },
+                    "paging": true,
+                    "pageLength": 25,
+                    "searching": true,
+                    "ordering": true,
+                    "order": [[0, "asc"]],
+                    "dom": '<"row"<"col-sm-12 col-md-6"B><"col-sm-12 col-md-6"f>><"row"<"col-sm-12"tr>><"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                    "responsive": true,
+                    "autoWidth": false,
+                    "scrollX": true,
+                    "scrollY": false,
+                    "deferRender": true,
+                    "createdRow": function(row, data, dataIndex) {
+                        // Сохраняем классы при создании строки
+                        $(row).find('td').each(function() {
+                            const cellValue = $(this).text().trim();
+                            if (cellValue === '0' || cellValue === '0.00') {
+                                $(this).addClass('zero-value');
+                            }
+                        });
+                    },
+                    "columnDefs": [
+                        {
+                            // Фиксируем ширину для вертикальных столбцов
+                            "targets": '_all',
+                            "width": '40px',
+                            "className": 'dt-head-center'
+                        },
+                        {
+                            // Шире для первых трех столбцов
+                            "targets": [0, 1, 2],
+                            "width": '100px'
+                        }
+                    ],
+                    "buttons": [
+                        {
+                            extend: 'colvis',
+                            text: 'Видимость столбцов'
+                        },
+                        {
+                            extend: 'collection',
+                            text: 'Экспорт',
+                            buttons: ['copy', 'csv', 'excel', 'pdf', 'print']
+                        }
+                    ]
+                });
+                
+                console.log('DataTable инициализирована успешно');
+            }
+        }
+
+        // Вспомогательные функции
+        function showAlert(type, message) {
+            clearAlerts();
+            
+            const alertClass = {
+                'success': 'alert-success',
+                'error': 'alert-danger',
+                'info': 'alert-info',
+                'warning': 'alert-warning'
+            }[type] || 'alert-info';
+            
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert ${alertClass} alert-dismissible fade show mt-3`;
+            alertDiv.innerHTML = `
+                ${message}
+            `;
+            
+            ensureAlertsContainer().appendChild(alertDiv);
+        }
+
+        function clearAlerts() {
+            const container = ensureAlertsContainer();
+            container.innerHTML = '';
+        }
+
+        function enableSubmitButton() {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Сформировать отчет';
+            }
+        }
+
+        // Если на странице уже есть данные отчета, инициализируем DataTable
+        if (document.getElementById('reportTable')) {
+            setTimeout(() => initializeDataTable(), 100);
+        }
+
+        {% if processing %}
+        // Если страница загружена с флагом processing, начинаем отслеживание
+        console.log('Автоматический запуск мониторинга задач:', {{ task_ids|safe }});
+        setTimeout(() => {
+            {% for task_id in task_ids %}
+            monitorTaskStatus('{{ task_id }}', 0);
+            {% endfor %}
+        }, 1500);
+        {% endif %}
+    });
+</script>
+
+<!-- В разделе стилей добавляем -->
+<style>
+/* Убираем зебровидность */
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: transparent;
+}
+
+/* Стиль для итоговой строки */
+.table-total-row {
+    background-color: #e9ecef !important;
+    font-weight: bold;
+}
+
+/* Серый цвет для нулевых значений */
+.zero-value {
+    background-color: #f8f9fa !important;
+    color: #6c757d !important;
+}
+
+/* Переопределяем цвета кластеров для нулевых значений */
+.zero-value[style*="background-color"] {
+    background-color: #f8f9fa !important;
+}
+
+/* Убедимся, что итоговая строка не окрашивается в серый для нулей */
+.table-total-row .zero-value {
+    background-color: #e9ecef !important;
+    color: #212529 !important;
+}
+
+/* Границы для лучшей читаемости */
+.table-bordered {
+    border: 1px solid #dee2e6;
+}
+
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #dee2e6;
+}
+
+/* Вертикальное выравнивание для заголовков */
+.table th {
+    vertical-align: middle !important;
+}
+
+/* Специфические стили для вертикального текста */
+.vertical-header {
+    writing-mode: vertical-lr;
+    transform: rotate(180deg);
+    text-align: center;
+    white-space: nowrap;
+    padding: 10px 5px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    height: 150px; /* Фиксированная высота для вертикальных заголовков */
+}
+
+/* Центрирование содержимого в ячейках */
+.table td {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* Первые три столбца выравниваем по левому краю */
+.table td:first-child,
+.table td:nth-child(2),
+.table td:nth-child(3) {
+    text-align: left;
+}
+
+/* Улучшаем отображение при горизонтальной прокрутке */
+.table-responsive {
+    border: 1px solid #dee2e6;
+}
+
+/* Отладочная информация */
+.debug-info {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #6c757d;
+}
+</style>
+{% endblock %}

@@ -17,11 +17,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('advertisings_views')
 
 load_dotenv()
-jwt_advertisings = os.getenv('jwt_advertisings_cab1')
+jwt_advertisings_cab1 = os.getenv('jwt_advertisings_cab1')
+jwt_advertisings_cab2 = os.getenv('jwt_advertisings_cab2')
+jwt_advertisings_cab3 = os.getenv('jwt_advertisings_cab3')
 
-headers_advertisings = {
-        'Authorization':jwt_advertisings
-    }
+arts_cab1 = {'16144447', '16144457', '253224463', '16144445', '521666999', '321037417', '247211124', '16144452', '16144464', '16144451', '18818825', '27886874', '16144472', '160925362', '474738065', '468568712', '253224239', '475797047', '16144458', '33641962', '16144478', '16144461', '16144474', '16144473', '16144455', '31683551', '16144482', '321031566'}
+arts_cab2 = {'228497127', '462984176', '258126163', '228498596', '232314554', '182951045', '239022653', '258125953', '481916417', '465659390', '236212732', '236216608', '252129611', '239022843', '544898877', '493972667'}
+arts_cab3 = {'241664541', '241662119', '258126523', '241649806', '241657617', '523389700', '241663331'}
 
 url_all_campaigns = 'https://advert-api.wildberries.ru/adv/v1/promotion/count' # GET
 url_info_campaign_nmID = 'https://advert-api.wildberries.ru/adv/v1/promotion/adverts' # POST
@@ -43,6 +45,27 @@ def advertisings_analysis(request):
 
             date_start_str = date_start.strftime('%Y-%m-%d')
             date_end_str = date_end.strftime('%Y-%m-%d')
+
+            headers_advertisings = None
+
+            if article_number in arts_cab1:
+                headers_advertisings = {
+                    'Authorization':jwt_advertisings_cab1
+                }
+            elif article_number in arts_cab2:
+                headers_advertisings = {
+                    'Authorization':jwt_advertisings_cab2
+                }
+            elif article_number in arts_cab3:
+                headers_advertisings = {
+                    'Authorization':jwt_advertisings_cab3
+                }
+
+            if headers_advertisings is None:
+                return render(request, 'advertisings/campaign_analysis.html', {
+                    'form': form,
+                    'error': f'Артикул {article_number} не найден в доступных кабинетах'
+                })
 
             cache_key = f"report_{date_start_str}_{date_end_str}"
             
@@ -139,7 +162,7 @@ def advertisings_analysis(request):
                 else:
                     # Кешируем на 48 часов (столько хранится отчет в базе WB API)
                     cache.set(cache_key, uuid_string, 48 * 60 * 60)
-                    time.sleep(2)
+                    time.sleep(3)
                     logger.info(f"Отчет создан и закеширован с ключом: {cache_key}")
 
             url_get_report = f'https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads/file/{uuid_string}' # GET
@@ -712,9 +735,32 @@ def keywords_analysis(request):
                                         "limit": 100
                                     }
 
+            headers_advertisings = None
+
+            if article_number in arts_cab1:
+                headers_advertisings = {
+                    'Authorization':jwt_advertisings_cab1
+                }
+            elif article_number in arts_cab2:
+                headers_advertisings = {
+                    'Authorization':jwt_advertisings_cab2
+                }
+            elif article_number in arts_cab3:
+                headers_advertisings = {
+                    'Authorization':jwt_advertisings_cab3
+                }
+                params_keywords_stats['limit'] = 30
+
+            if headers_advertisings is None:
+                return render(request, 'advertisings/keywords_analysis.html', {
+                    'form': form,
+                    'error': f'Артикул {article_number} не найден в доступных кабинетах'
+                })
+
             keywords_response = requests.post(url_keywords_stats, headers=headers_advertisings, json=params_keywords_stats)
             
             if keywords_response.status_code != 200:
+                logger.info(f"Детали ошибки: {keywords_response.json()['detail']}")
                 return render(request, 'advertisings/keywords_analysis.html', {
                     'form': form,
                     'error': f'Ошибка №{keywords_response.status_code} при получении статистики ключевых слов'

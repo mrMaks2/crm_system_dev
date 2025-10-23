@@ -4,6 +4,7 @@
 {% url 'advertisings:campaign_analysis' as campaign_analysis_url %}
 {% url 'advertisings:keywords_analysis' as keywords_analysis_url %}
 {% url 'product_cards:product_cards' as product_cards_url %}
+{% url 'leftovers:stocks_orders_report' as stocks_orders_report_url %}
 
 <!doctype html>
 <html lang="en">
@@ -53,6 +54,9 @@
             </li>
             <li class="nav-item mx-1 {% if request.path == reviews_check_url %} active {% endif %}">
               <a class="nav-link" href="{% url 'reviews:check' %}" id="brand">Проверка отзыва</a>
+            </li>
+            <li class="nav-item mx-1 {% if request.path == stocks_orders_report_url %} active {% endif %}">
+              <a class="nav-link" href="{% url 'leftovers:stocks_orders_report' %}" id="brand">Остатки</a>
             </li>
             <li class="nav-item dropdown {% if request.path == campaign_analysis_url or request.path == keywords_analysis_url %} active {% endif %}">
               <a class="nav-link dropdown-toggle" href="#" id="brand" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
