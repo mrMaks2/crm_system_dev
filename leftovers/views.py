@@ -417,6 +417,10 @@ def get_orders_report_data(orders_data):
     
     for order_item in orders_data:
         try:
+            
+            if order_item.get('isCancel', False):
+                continue
+
             nm_id = order_item['nmId']
             supplier_article = order_item.get('supplierArticle', '')
             region_name = order_item.get('regionName', '')

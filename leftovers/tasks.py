@@ -57,7 +57,7 @@ def get_stocks_data_async(self, cab_num):
     try:
         # Автоматически рассчитываем даты: с 14 дней назад по вчера
         today = datetime.datetime.now().date()
-        date_from = today - datetime.timedelta(days=14)
+        date_from = today - datetime.timedelta(days=365)
         date_from_str = date_from.strftime('%Y-%m-%d')
         
         logger.info(f"Асинхронное получение остатков для кабинета {cab_num} с {date_from_str}")
