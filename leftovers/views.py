@@ -4,8 +4,8 @@ from .forms import StocksOrdersForm
 from celery.result import AsyncResult
 import datetime
 import logging
+from django.http import HttpResponse
 from django.http import JsonResponse
-from django.template.loader import render_to_string
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('leftovers_views')
@@ -37,8 +37,13 @@ def stocks_orders_report_async(request):
                     task = get_orders_data_async.delay(cab_num)
                 elif report_type == 'needs':
                     task = get_needs_data_async.delay(cab_num)
-                elif report_type == 'turnover':  # Новый тип отчета
+                elif report_type == 'turnover':
                     task = get_turnover_data_async.delay(cab_num)
+                else:
+                    return JsonResponse({
+                        'status': 'error',
+                        'error': 'Неизвестный тип отчета'
+                    })
                 
                 # Сохраняем информацию о задаче в сессии
                 task_info = {
@@ -60,38 +65,8 @@ def stocks_orders_report_async(request):
                     'message': 'Запущен процесс получения данных...'
                 })
             else:
-                # Обычный POST запрос - традиционная логика
-                if report_type == 'stocks':
-                    task = get_stocks_data_async.delay(cab_num)
-                elif report_type == 'orders':
-                    task = get_orders_data_async.delay(cab_num)
-                elif report_type == 'needs':
-                    task = get_needs_data_async.delay(cab_num)
-                elif report_type == 'turnover':  # Новый тип отчета
-                    task = get_turnover_data_async.delay(cab_num)
-                
-                task_info = {
-                    'task_id': task.id,
-                    'report_type': report_type,
-                    'cab_num': cab_num,
-                    'date_from': date_from.strftime('%Y-%m-%d'),
-                    'date_to': date_to.strftime('%Y-%m-%d'),
-                    'status': 'processing'
-                }
-                
-                request.session['current_task'] = task_info
-                request.session.modified = True
-                
-                context = {
-                    'form': form,
-                    'report_type': report_type,
-                    'cab_num': cab_num,
-                    'task_ids': [task.id],
-                    'processing': True,
-                    'date_from': date_from.strftime('%Y-%m-%d'),
-                    'date_to': date_to.strftime('%Y-%m-%d'),
-                }
-                return render(request, 'leftovers/stocks_orders_report.html', context)
+                # Обычный POST запрос
+                return _handle_sync_post(request, form, report_type, cab_num, date_from, date_to)
         else:
             error_msg = 'Пожалуйста, исправьте ошибки в форме'
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -101,11 +76,11 @@ def stocks_orders_report_async(request):
                 return render(request, 'leftovers/stocks_orders_report.html', context)
     
     else:
-        # GET запрос
+        # GET запрос - просто показываем форму
         form = StocksOrdersForm()
         context = {'form': form}
         
-        # Проверяем сессию на наличие завершенной задачи
+        # Если есть данные в сессии от предыдущего успешного запроса, показываем их
         if 'current_task' in request.session:
             task_info = request.session['current_task']
             task_id = task_info.get('task_id')
@@ -113,14 +88,11 @@ def stocks_orders_report_async(request):
             if task_id:
                 task_result = AsyncResult(task_id)
                 if task_result.ready() and task_result.successful():
-                    logger.info(f"Задача {task_id} завершена, отображаем результаты")
-                    
                     result_data = task_result.result
                     report_type = task_info.get('report_type')
                     cab_num = task_info.get('cab_num')
                     date_from = task_info.get('date_from')
                     
-                    # Подготавливаем данные для отображения
                     report_data = prepare_report_data(result_data, report_type, cab_num, date_from)
                     
                     if report_data:
@@ -131,12 +103,42 @@ def stocks_orders_report_async(request):
                             'date_from': task_info.get('date_from'),
                             'date_to': task_info.get('date_to'),
                         })
-                    
-                    # Очищаем сессию
-                    del request.session['current_task']
-                    request.session.modified = True
         
         return render(request, 'leftovers/stocks_orders_report.html', context)
+
+def _handle_sync_post(request, form, report_type, cab_num, date_from, date_to):
+    """Обработка синхронного POST запроса"""
+    if report_type == 'stocks':
+        task = get_stocks_data_async.delay(cab_num)
+    elif report_type == 'orders':
+        task = get_orders_data_async.delay(cab_num)
+    elif report_type == 'needs':
+        task = get_needs_data_async.delay(cab_num)
+    elif report_type == 'turnover':
+        task = get_turnover_data_async.delay(cab_num)
+    
+    task_info = {
+        'task_id': task.id,
+        'report_type': report_type,
+        'cab_num': cab_num,
+        'date_from': date_from.strftime('%Y-%m-%d'),
+        'date_to': date_to.strftime('%Y-%m-%d'),
+        'status': 'processing'
+    }
+    
+    request.session['current_task'] = task_info
+    request.session.modified = True
+    
+    context = {
+        'form': form,
+        'report_type': report_type,
+        'cab_num': cab_num,
+        'task_ids': [task.id],
+        'processing': True,
+        'date_from': date_from.strftime('%Y-%m-%d'),
+        'date_to': date_to.strftime('%Y-%m-%d'),
+    }
+    return render(request, 'leftovers/stocks_orders_report.html', context)
 
 def prepare_report_data(raw_data, report_type, cab_num, date_from):
     """
@@ -920,7 +922,7 @@ def map_region_to_excel(region_name):
 
 def check_task_status(request, task_id):
     """
-    Проверяет статус асинхронной задачи
+    Проверяет статус асинхронной задачи и возвращает HTML таблицы при завершении
     """
     try:
         task_result = AsyncResult(task_id)
@@ -935,23 +937,32 @@ def check_task_status(request, task_id):
                 report_type = task_info.get('report_type')
                 cab_num = task_info.get('cab_num')
                 date_from = task_info.get('date_from')
+                date_to = task_info.get('date_to')
                 
                 # Подготавливаем данные для отображения
                 report_data = prepare_report_data(result_data, report_type, cab_num, date_from)
                 
                 if report_data:
                     # Рендерим HTML таблицы
-                    table_html = render_to_string('leftovers/stocks_orders_report_table.html', {
-                        'report_data': report_data,
+                    from django.template.loader import render_to_string
+                    html_table = render_to_string('leftovers/stocks_orders_report_table.html', {
                         'report_type': report_type,
                         'cab_num': cab_num,
-                        'date_from': task_info.get('date_from'),
-                        'date_to': task_info.get('date_to'),
+                        'report_data': report_data,
+                        'date_from': date_from,
+                        'date_to': date_to,
                     })
+                    
+                    # Очищаем сессию после успешного получения данных
+                    if 'current_task' in request.session:
+                        del request.session['current_task']
+                        request.session.modified = True
                     
                     return JsonResponse({
                         'status': 'completed',
-                        'table_html': table_html,
+                        'html_table': html_table,
+                        'report_type': report_type,
+                        'cab_num': cab_num,
                         'message': 'Отчет успешно сформирован'
                     })
                 else:
@@ -960,6 +971,11 @@ def check_task_status(request, task_id):
                         'error': 'Не удалось подготовить данные отчета'
                     })
             else:
+                # Очищаем сессию при ошибке
+                if 'current_task' in request.session:
+                    del request.session['current_task']
+                    request.session.modified = True
+                    
                 return JsonResponse({
                     'status': 'failed',
                     'error': str(task_result.result)
@@ -967,12 +983,26 @@ def check_task_status(request, task_id):
         else:
             return JsonResponse({
                 'status': 'processing',
-                'message': 'Данные еще загружаются...'
+                'message': f'Данные еще загружаются... (проверка {request.GET.get("attempt", 1)})'
             })
             
     except Exception as e:
         logger.error(f"Ошибка при проверке статуса задачи: {e}")
+        # Очищаем сессию при исключении
+        if 'current_task' in request.session:
+            del request.session['current_task']
+            request.session.modified = True
+            
         return JsonResponse({
             'status': 'error',
             'error': str(e)
         })
+    
+def clear_task_session(request):
+    """
+    Очищает сессию от информации о задачах
+    """
+    if 'current_task' in request.session:
+        del request.session['current_task']
+        request.session.modified = True
+    return JsonResponse({'status': 'cleared'})

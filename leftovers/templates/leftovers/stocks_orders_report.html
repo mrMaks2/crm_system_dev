@@ -112,7 +112,7 @@
             if (!alertsContainer) {
                 alertsContainer = document.createElement('div');
                 alertsContainer.id = 'alertsContainer';
-                document.querySelector('.container.mt-2').appendChild(alertsContainer);
+                document.querySelector('.container.mt-3').appendChild(alertsContainer);
             }
             return alertsContainer;
         }
@@ -146,12 +146,12 @@
                 .then(data => {
                     if (data.status === 'processing') {
                         showAlert('info', 'Задача запущена, ожидаем данные...');
-                        // Даем больше времени на инициализацию задачи
-                        setTimeout(() => {
-                            monitorTaskStatus(data.task_id, 0);
-                        }, 1000);
+                        monitorTaskStatus(data.task_id, 1);
                     } else if (data.status === 'error') {
                         showAlert('error', data.error);
+                        enableSubmitButton();
+                    } else {
+                        showAlert('error', 'Неизвестный статус ответа: ' + (data.status || 'отсутствует'));
                         enableSubmitButton();
                     }
                 })
@@ -163,87 +163,62 @@
             });
         }
 
-        // Улучшенная функция отслеживания статуса задачи
-        function monitorTaskStatus(taskId, attempt = 0) {
-            const maxAttempts = 30; // Максимум 30 попыток (~2.5 минуты)
+        // Функция отслеживания статуса задачи
+        function monitorTaskStatus(taskId, attempt) {
+            const maxAttempts = 60; // Увеличим количество попыток
+            const maxTime = 600000; // 10 минут максимальное время
             
-            // Прогрессивные интервалы в зависимости от попытки
-            const getCheckDelay = (attemptNum) => {
-                if (attemptNum < 3) return 1000;    // Первые 3 проверки: 1 сек
-                if (attemptNum < 8) return 2000;    // Следующие 5: 2 сек
-                if (attemptNum < 15) return 3000;   // Следующие 7: 3 сек
-                return 5000;                        // Остальные: 5 сек
-            };
-
-            const checkStatus = () => {
-                if (attempt >= maxAttempts) {
-                    showAlert('error', 'Превышено время ожидания выполнения задачи');
-                    enableSubmitButton();
-                    return;
-                }
-
-                const startTime = Date.now();
-                
-                fetch(`/leftovers/check_task_status/${taskId}/`)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
+            if (attempt > maxAttempts) {
+                showAlert('error', 'Превышено максимальное количество попыток');
+                enableSubmitButton();
+                return;
+            }
+            
+            showAlert('info', `Получение данных...`);
+            
+            // Добавляем параметр attempt к URL
+            const url = `/leftovers/check_task_status/${taskId}/?attempt=${attempt}`;
+            
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(`Проверка ${attempt}: статус "${data.status}"`);
+                    
+                    if (data.status === 'completed') {
+                        showAlert('success', data.message);
+                        // Вставляем HTML таблицы напрямую
+                        if (reportTableContainer && data.html_table) {
+                            reportTableContainer.innerHTML = data.html_table;
+                            // Инициализируем DataTable после вставки HTML
+                            setTimeout(() => initializeDataTable(), 100);
                         }
-                        return response.json();
-                    })
-                    .then(data => {
-                        const responseTime = Date.now() - startTime;
-                        console.log(`Проверка ${attempt + 1}: статус "${data.status}", время ответа: ${responseTime}ms`);
+                        enableSubmitButton();
                         
-                        if (data.status === 'completed') {
-                            showAlert('success', data.message);
-                            if (data.table_html) {
-                                displayReportTable(data.table_html);
-                                enableSubmitButton();
-                                // Даем время на рендеринг таблицы перед инициализацией DataTable
-                                setTimeout(() => initializeDataTable(), 100);
-                            } else {
-                                showAlert('error', 'Получены пустые данные таблицы');
-                                enableSubmitButton();
-                            }
-                            
-                        } else if (data.status === 'failed') {
-                            showAlert('error', data.error || 'Произошла ошибка при получении данных');
-                            enableSubmitButton();
-                            
-                        } else {
-                            // Показываем прогресс для длительных операций
-                            if (attempt > 5) {
-                                showAlert('info', `Получение данных... (проверка ${attempt + 1}/${maxAttempts})`);
-                            }
-                            
-                            const nextDelay = getCheckDelay(attempt);
-                            setTimeout(() => {
-                                monitorTaskStatus(taskId, attempt + 1);
-                            }, nextDelay);
-                        }
-                    })
-                    .catch(error => {
-                        console.error(`Ошибка при проверке статуса задачи (попытка ${attempt + 1}):`, error);
+                    } else if (data.status === 'failed' || data.status === 'error') {
+                        showAlert('error', data.error || 'Произошла ошибка');
+                        enableSubmitButton();
                         
-                        // При сетевых ошибках увеличиваем интервал
-                        const errorDelay = Math.min(10000, 2000 * (attempt + 1));
-                        showAlert('warning', `Проблема с подключением, повторная попытка через ${errorDelay/1000} сек...`);
-                        
+                    } else {
+                        // Задача еще выполняется, проверяем снова через 3 секунды
                         setTimeout(() => {
                             monitorTaskStatus(taskId, attempt + 1);
-                        }, errorDelay);
-                    });
-            };
-            
-            checkStatus();
-        }
-
-        // Функция отображения таблицы отчета
-        function displayReportTable(html) {
-            if (reportTableContainer) {
-                reportTableContainer.innerHTML = html;
-            }
+                        }, 3000);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Ошибка при проверке статуса задачи (попытка ${attempt}):`, error);
+                    
+                    showAlert('warning', `Проблема с подключением, повторная попытка через 5 сек...`);
+                    
+                    setTimeout(() => {
+                        monitorTaskStatus(taskId, attempt + 1);
+                    }, 5000);
+                });
         }
 
         // Функция инициализации DataTables
@@ -253,10 +228,9 @@
                 // Уничтожаем существующую таблицу DataTable, если есть
                 if ($.fn.DataTable.isDataTable('#reportTable')) {
                     $('#reportTable').DataTable().destroy();
-                    $('#reportTable').empty();
                 }
                 
-                // Конфигурация для таблицы с вертикальными заголовками
+                // Инициализируем DataTable
                 $('#reportTable').DataTable({
                     "language": {
                         "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/ru.json"
@@ -272,28 +246,6 @@
                     "scrollX": true,
                     "scrollY": false,
                     "deferRender": true,
-                    "createdRow": function(row, data, dataIndex) {
-                        // Сохраняем классы при создании строки
-                        $(row).find('td').each(function() {
-                            const cellValue = $(this).text().trim();
-                            if (cellValue === '0' || cellValue === '0.00') {
-                                $(this).addClass('zero-value');
-                            }
-                        });
-                    },
-                    "columnDefs": [
-                        {
-                            // Фиксируем ширину для вертикальных столбцов
-                            "targets": '_all',
-                            "width": '40px',
-                            "className": 'dt-head-center'
-                        },
-                        {
-                            // Шире для первых трех столбцов
-                            "targets": [0, 1, 2],
-                            "width": '100px'
-                        }
-                    ],
                     "buttons": [
                         {
                             extend: 'colvis',
@@ -324,9 +276,7 @@
             
             const alertDiv = document.createElement('div');
             alertDiv.className = `alert ${alertClass} alert-dismissible fade show mt-3`;
-            alertDiv.innerHTML = `
-                ${message}
-            `;
+            alertDiv.innerHTML = `${message}`;
             
             ensureAlertsContainer().appendChild(alertDiv);
         }
@@ -348,14 +298,14 @@
             setTimeout(() => initializeDataTable(), 100);
         }
 
-        {% if processing %}
         // Если страница загружена с флагом processing, начинаем отслеживание
-        console.log('Автоматический запуск мониторинга задач:', {{ task_ids|safe }});
-        setTimeout(() => {
-            {% for task_id in task_ids %}
-            monitorTaskStatus('{{ task_id }}', 0);
-            {% endfor %}
-        }, 1500);
+        {% if processing %}
+            console.log('Автоматический запуск мониторинга задач:', {{ task_ids|safe }});
+            setTimeout(() => {
+                {% for task_id in task_ids %}
+                monitorTaskStatus('{{ task_id }}', 1);
+                {% endfor %}
+            }, 1000);
         {% endif %}
     });
 </script>
