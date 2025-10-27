@@ -366,17 +366,17 @@
                     <!-- Данные по кластерам: остатки, заказы, оборачиваемость -->
                     {% for cluster in report_data.clusters %}
                         {% with cluster_data=data.clusters|get_item:cluster %}
-                            {% if cluster_data.stocks== 0 %}
+                            {% if cluster_data.stocks == 0 %}
                                 <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;"></td>
                             {% else %}
                                 <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;">{{ cluster_data.stocks|default:0 }}</td>
                             {% endif %}
-                            {% if cluster_data.orders== 0 %}
+                            {% if cluster_data.orders == 0 %}
                                 <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;"></td>
                             {% else %}
                                 <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;">{{ cluster_data.orders|default:0 }}</td>
                             {% endif %}
-                            {% if cluster_data.turnover== 0 %}
+                            {% if cluster_data.turnover == 0 %}
                                 <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle; border-right: 2px solid #dee2e6;"></td>
                             {% else %}
                                 <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle; border-right: 2px solid #dee2e6;"><strong>{{ cluster_data.turnover|floatformat:0|default:0 }}</strong></td>
