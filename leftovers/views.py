@@ -234,27 +234,14 @@ def get_stocks_by_cluster_report_data(stocks_data):
 
 def get_turnover_report_data(stocks_data, orders_data):
     """
-    Подготавливает данные для отчета по оборачиваемости
+    Подготавливает данные для отчета по оборачиваемости с объединенными регионами
     """
     # Получаем данные по остаткам и заказам
     stocks_report = get_stocks_report_data(stocks_data)
-    orders_report = get_orders_report_data(orders_data)
+    orders_report = get_orders_report_data(orders_data)  # Используем обновленную функцию
     
-    # Кластеры в правильном порядке
-    clusters = [
-        'Центральный',
-        'Приволжский',
-        'Южный + Северо-Кавказский',
-        'Уральский',
-        'Северо-Западный',
-        'Казахстан',
-        'Дальневосточный + Сибирский',
-        'Беларусь',
-        'Армения',
-        'Грузия',
-        'Узбекистан',
-        'Кыргызстан'
-    ]
+    # Используем объединенные регионы
+    clusters = get_merged_regions()
     
     report_data = {}
     total_row = {
@@ -290,7 +277,7 @@ def get_turnover_report_data(stocks_data, orders_data):
         supplier_article = stock_info.get('supplier_article') or order_info.get('supplier_article', '')
         subject = stock_info.get('subject', '')
         
-        # Рассчитываем оборачиваемость по кластерам
+        # Рассчитываем оборачиваемость по объединенным кластерам
         cluster_data = calculate_turnover_by_cluster(stock_info, order_info, clusters)
         
         # Считаем общие итоги
@@ -348,13 +335,12 @@ def get_turnover_report_data(stocks_data, orders_data):
 
 def calculate_turnover_by_cluster(stock_info, order_info, clusters):
     """
-    Рассчитывает оборачиваемость по кластерам по формуле: =ЕСЛИОШИБКА(А/(В/14);0)
-    Где: А - остатки товара в кластере, В - заказы товара по кластеру
+    Рассчитывает оборачиваемость по объединенным кластерам
     """
     cluster_data = {}
     
-    # Распределяем остатки по кластерам
-    region_stocks = distribute_stocks_to_regions(stock_info, clusters)
+    # Распределяем остатки по объединенным кластерам
+    region_stocks = distribute_stocks_to_merged_regions(stock_info, clusters)
     
     for cluster in clusters:
         # А - остатки в кластере
@@ -380,6 +366,73 @@ def calculate_turnover_by_cluster(stock_info, order_info, clusters):
         }
     
     return cluster_data
+
+def distribute_stocks_to_merged_regions(stock_info, merged_regions):
+    """
+    Распределяет остатки по складам на объединенные регионы
+    """
+    region_stocks = {region: 0 for region in merged_regions}
+    
+    # Маппинг складов на объединенные регионы
+    warehouse_to_merged_region = {
+        # Центральный + Беларусь
+        'Рязань (Тюшевское)': 'Центральный + Беларусь',
+        'Сабурово': 'Центральный + Беларусь',
+        'Владимир': 'Центральный + Беларусь',
+        'Тула': 'Центральный + Беларусь',
+        'Котовск': 'Центральный + Беларусь',
+        'Электросталь': 'Центральный + Беларусь',
+        'Воронеж': 'Центральный + Беларусь',
+        'Обухово': 'Центральный + Беларусь',
+        'Коледино': 'Центральный + Беларусь',
+        'Белая дача': 'Центральный + Беларусь',
+        'Подольск': 'Центральный + Беларусь',
+        'Щербинка': 'Центральный + Беларусь',
+        'Чехов 1': 'Центральный + Беларусь',
+        'Чехов 2': 'Центральный + Беларусь',
+        'Белые Столбы': 'Центральный + Беларусь',
+        'Минск': 'Центральный + Беларусь',
+        
+        # Приволжский
+        'Кузнецк СГТ': 'Приволжский',
+        'Пенза': 'Приволжский',
+        'Самара (Новосемейкино)': 'Приволжский',
+        'Сарапул': 'Приволжский',
+        'Казань': 'Приволжский',
+        
+        # Южный + Северо-Кавказский + Армения + Азербайджан
+        'Волгоград': 'Южный + Северо-Кавказский + Армения + Азербайджан',
+        'Невинномысск': 'Южный + Северо-Кавказский + Армения + Азербайджан',
+        'Краснодар': 'Южный + Северо-Кавказский + Армения + Азербайджан',
+        'СЦ Ереван': 'Южный + Северо-Кавказский + Армения + Азербайджан',
+        
+        # Уральский + Казахстан + Узбекистан + Кыргызстан
+        'Челябинск СГТ': 'Уральский + Казахстан + Узбекистан + Кыргызстан',
+        'Екатеринбург - Испытателей 14г': 'Уральский + Казахстан + Узбекистан + Кыргызстан',
+        'Екатеринбург - Перспективный 12': 'Уральский + Казахстан + Узбекистан + Кыргызстан',
+        'Атакент': 'Уральский + Казахстан + Узбекистан + Кыргызстан',
+        'Актобе': 'Уральский + Казахстан + Узбекистан + Кыргызстан',
+        'Астана Карагандинское шоссе': 'Уральский + Казахстан + Узбекистан + Кыргызстан',
+        'Ташкент': 'Уральский + Казахстан + Узбекистан + Кыргызстан',
+        
+        # Северо-Западный
+        'Санкт-Петербург СГТ': 'Северо-Западный',
+        'СПБ Шушары': 'Северо-Западный',
+        'Санкт-Петербург Уткина Заводь': 'Северо-Западный',
+        
+        # Дальневосточный + Сибирский
+        'Хабаровск': 'Дальневосточный + Сибирский',
+        'Новосибирск': 'Дальневосточный + Сибирский'
+    }
+    
+    # Распределяем остатки по объединенным регионам
+    for warehouse, stock in stock_info['warehouses'].items():
+        if warehouse in warehouse_to_merged_region:
+            region = warehouse_to_merged_region[warehouse]
+            if region in region_stocks:
+                region_stocks[region] += stock
+    
+    return region_stocks
 
 def get_stocks_report_data(stocks_data):
     """Подготавливает данные для отчета по остаткам"""
@@ -460,23 +513,10 @@ def get_stocks_report_data(stocks_data):
     }
 
 def get_orders_report_data(orders_data):
-    """Подготавливает данные для отчета по заказам"""
+    """Подготавливает данные для отчета по заказам с объединенными регионами"""
     
-    # Обновленные регионы в правильном порядке
-    regions = [
-        'Центральный',
-        'Приволжский',
-        'Южный + Северо-Кавказский',
-        'Уральский',
-        'Северо-Западный',
-        'Казахстан',
-        'Дальневосточный + Сибирский',
-        'Беларусь',
-        'Армения',
-        'Грузия',
-        'Узбекистан',
-        'Кыргызстан'
-    ]
+    # Используем объединенные регионы
+    regions = get_merged_regions()
     
     report_data = {}
     total_row = {
@@ -487,7 +527,6 @@ def get_orders_report_data(orders_data):
     
     for order_item in orders_data:
         try:
-            
             if order_item.get('isCancel', False):
                 continue
 
@@ -502,14 +541,15 @@ def get_orders_report_data(orders_data):
                     'total': 0
                 }
             
-            excel_region = map_region_to_excel(region_name)
+            # Используем объединенные регионы
+            merged_region = map_region_to_merged(region_name)
             
-            if excel_region in regions:
-                report_data[nm_id]['regions'][excel_region] += 1
+            if merged_region in regions:
+                report_data[nm_id]['regions'][merged_region] += 1
                 report_data[nm_id]['total'] += 1
                 
                 # Добавляем в итоговую строку
-                total_row['regions'][excel_region] += 1
+                total_row['regions'][merged_region] += 1
                 total_row['total'] += 1
                 
         except Exception as e:
@@ -524,11 +564,11 @@ def get_orders_report_data(orders_data):
     }
 
 def get_needs_report_data(stocks_data, orders_data, period_multiplier=1):
-    """Подготавливает данные для отчета по потребностям (только потребности)"""
+    """Подготавливает данные для отчета по потребностям с объединенными регионами"""
     
     # Получаем данные по остаткам и заказам для расчета потребностей
     stocks_report = get_stocks_report_data(stocks_data)
-    orders_report = get_orders_report_data(orders_data)
+    orders_report = get_orders_report_data(orders_data)  # Используем обновленную функцию
     
     # Объединяем данные для расчета потребностей
     report_data = {}
@@ -567,7 +607,7 @@ def get_needs_report_data(stocks_data, orders_data, period_multiplier=1):
         needs = calculate_needs(
             stock_info, 
             order_info, 
-            orders_report['regions'],
+            orders_report['regions'],  # Используем объединенные регионы
             period_multiplier
         )
         
@@ -591,7 +631,7 @@ def get_needs_report_data(stocks_data, orders_data, period_multiplier=1):
     
     return {
         'report_data': report_data,
-        'regions': orders_report['regions']
+        'regions': orders_report['regions']  # Используем объединенные регионы
     }
 
 def calculate_needs(stock_info, order_info, regions, period_multiplier=1):
@@ -1069,6 +1109,65 @@ def map_region_to_excel(region_name):
         logger.warning(f"Не удалось определить регион: '{region_name}'")
     
     return 'Центральный'
+
+def get_merged_regions():
+    """
+    Возвращает список объединенных регионов для отчетов Заказы, Потребности, Оборачиваемость
+    """
+    return [
+        'Центральный + Беларусь',
+        'Приволжский',
+        'Южный + Северо-Кавказский + Армения + Азербайджан',
+        'Уральский + Казахстан + Узбекистан + Кыргызстан',
+        'Северо-Западный',
+        'Дальневосточный + Сибирский'
+    ]
+
+def map_region_to_merged(region_name):
+    """
+    Сопоставляет регион с объединенной группой
+    """
+    region_lower = region_name.lower() if region_name else ''
+    
+    # Центральный + Беларусь
+    if any(keyword in region_lower for keyword in [
+        'москва', 'московская', 'центральный', 'беларусь', 'белорус'
+    ]):
+        return 'Центральный + Беларусь'
+    
+    # Приволжский
+    elif any(keyword in region_lower for keyword in [
+        'приволжский', 'казань', 'самара', 'нижний', 'татарстан', 'башкортостан'
+    ]):
+        return 'Приволжский'
+    
+    # Южный + Северо-Кавказский + Армения + Азербайджан
+    elif any(keyword in region_lower for keyword in [
+        'южный', 'кавказский', 'крым', 'краснодар', 'ростов', 'армен', 'азербайджан'
+    ]):
+        return 'Южный + Северо-Кавказский + Армения + Азербайджан'
+    
+    # Уральский + Казахстан + Узбекистан + Кыргызстан
+    elif any(keyword in region_lower for keyword in [
+        'уральский', 'казахстан', 'узбекистан', 'кыргызстан', 'екатеринбург', 'челябинск'
+    ]):
+        return 'Уральский + Казахстан + Узбекистан + Кыргызстан'
+    
+    # Северо-Западный
+    elif any(keyword in region_lower for keyword in [
+        'северо-западный', 'петербург', 'ленинград'
+    ]):
+        return 'Северо-Западный'
+    
+    # Дальневосточный + Сибирский
+    elif any(keyword in region_lower for keyword in [
+        'дальневосточный', 'сибирский', 'новосибирск', 'иркутск', 'красноярск', 'хабаровск'
+    ]):
+        return 'Дальневосточный + Сибирский'
+    
+    # По умолчанию
+    else:
+        return 'Центральный + Беларусь'
 
 def check_task_status(request, task_id):
     """
