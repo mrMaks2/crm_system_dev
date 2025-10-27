@@ -297,7 +297,7 @@
                             {% if value == 0 %}
                                 <td style="background-color: {{ region|get_cluster_color_light }};"></td>
                             {% else %}
-                                <td style="background-color: {% if value == 0 %}#c7c7c7ff{% else %}{{ region|get_cluster_color_light }}{% endif %}; text-align: center; vertical-align: middle;">
+                                <td style="background-color: {{ region|get_cluster_color_light }}; text-align: center; vertical-align: middle;">
                                     <strong>{{ value }}</strong>
                                 </td>
                             {% endif %}
@@ -326,7 +326,7 @@
                         {% if value == 0 %}
                             <td style="background-color: {{ region|get_cluster_color_light }};"></td>
                         {% else %}
-                            <td style="background-color: {% if value == 0 %}#c7c7c7ff{% else %}{{ region|get_cluster_color_light }}{% endif %}; text-align: center; vertical-align: middle;">
+                            <td style="background-color: {{ region|get_cluster_color_light }}; text-align: center; vertical-align: middle;">
                                 <strong>{{ value }}</strong>
                             </td>
                         {% endif %}
@@ -345,16 +345,42 @@
                     <td style="border-right: 2px solid #dee2e6; text-align: center; vertical-align: middle; max-width: 200px !important; word-wrap: break-word; white-space: normal;">{{ data.subject }}</td>
                     
                     <!-- Итоговые значения -->
-                    <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_stocks|default:0 }}</strong></td>
-                    <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_orders|default:0 }}</strong></td>
-                    <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_turnover|floatformat:0|default:0 }}</strong></td>
+                    {% if data.total_stocks == 0 %}
+                        <td class="table-primary" style="text-align: center; vertical-align: middle;"></td>
+                    {% else %}
+                        <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_stocks|default:0 }}</strong></td>
+                    {% endif %}
+
+                    {% if data.total_orders == 0 %}
+                        <td class="table-primary" style="text-align: center; vertical-align: middle;"></td>
+                    {% else %}
+                        <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_orders|default:0 }}</strong></td>
+                    {% endif %}
+
+                    {% if data.total_turnover == 0 %}
+                        <td class="table-primary" style="text-align: center; vertical-align: middle;"></td>
+                    {% else %}
+                        <td class="table-primary" style="text-align: center; vertical-align: middle;"><strong>{{ data.total_turnover|floatformat:0|default:0 }}</strong></td>
+                    {% endif %}
 
                     <!-- Данные по кластерам: остатки, заказы, оборачиваемость -->
                     {% for cluster in report_data.clusters %}
                         {% with cluster_data=data.clusters|get_item:cluster %}
-                        <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;">{{ cluster_data.stocks|default:0 }}</td>
-                        <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;">{{ cluster_data.orders|default:0 }}</td>
-                        <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle; border-right: 2px solid #dee2e6;"><strong>{{ cluster_data.turnover|floatformat:0|default:0 }}</strong></td>
+                            {% if cluster_data.stocks== 0 %}
+                                <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;"></td>
+                            {% else %}
+                                <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;">{{ cluster_data.stocks|default:0 }}</td>
+                            {% endif %}
+                            {% if cluster_data.orders== 0 %}
+                                <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;"></td>
+                            {% else %}
+                                <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle;">{{ cluster_data.orders|default:0 }}</td>
+                            {% endif %}
+                            {% if cluster_data.turnover== 0 %}
+                                <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle; border-right: 2px solid #dee2e6;"></td>
+                            {% else %}
+                                <td style="background-color: {{ cluster|get_cluster_color_light }}; text-align: center; vertical-align: middle; border-right: 2px solid #dee2e6;"><strong>{{ cluster_data.turnover|floatformat:0|default:0 }}</strong></td>
+                            {% endif %}
                         {% endwith %}
                     {% endfor %}
                 </tr>
