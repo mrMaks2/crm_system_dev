@@ -162,10 +162,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'advertisings.tasks.get_and_save_advertisings_stats',
         'schedule': crontab(minute='10', hour='8'),
     },
-    'export-statistics-to-google-sheets-every-day': {
-        'task': 'advertisings.tasks.export_statistics_to_google_sheets',
-        'schedule': crontab(minute='25', hour='8'),
-    },
+    # 'export-statistics-to-google-sheets-every-day': {
+    #     'task': 'advertisings.tasks.export_statistics_to_google_sheets',
+    #     'schedule': crontab(minute='25', hour='8'),
+    # },
 }
 
 # Улучшенные настройки Celery для быстрого запуска задач

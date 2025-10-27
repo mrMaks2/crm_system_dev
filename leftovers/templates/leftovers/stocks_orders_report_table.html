@@ -60,13 +60,9 @@
                     <th style="border-right: 2px solid #dee2e6;">Артикул WB</th>
                     <th style="border-right: 2px solid #dee2e6;">Артикул продавца</th>
                     <th style="border-right: 2px solid #dee2e6; max-width: 200px !important;">Название</th>
-                    <th class="table-primary" style="writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 50px; max-width: 40px; white-space: nowrap;">
-                        <span style="display: inline-block; padding: 5px 0;">ВСЕГО</span>
-                    </th>
+                    <th class="table-primary" style="text-align: center;">ВСЕГО</th>
                     {% for cluster in report_data.clusters %}
-                    <th style="background-color: {{ cluster|get_cluster_color_light }}; writing-mode: vertical-lr; transform: rotate(180deg); text-align: center; vertical-align: middle; min-width: 40px; max-width: 40px; white-space: nowrap;">
-                        <span style="display: inline-block; padding: 5px 0;">{{ cluster }}</span>
-                    </th>
+                    <th style="background-color: {{ cluster|get_cluster_color }}; text-align: center;">{{ cluster }}</th>
                     {% endfor %}
                 </tr>
 
