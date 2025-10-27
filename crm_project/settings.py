@@ -150,18 +150,18 @@ from celery.schedules import crontab
 # import reviews.tasks
 
 CELERY_BEAT_SCHEDULE = {
-    'fetch-reviews-every-15-minutes': {
-        'task': 'reviews.tasks.fetch_reviews',
-        'schedule': crontab(minute='*/15'),
-    },
-    'deleter-reviews-every-15-minutes': {
-        'task': 'reviews.tasks.deleter_reviews',
-        'schedule': crontab(minute='*/15'),
-    },
-    'get-and-save-advertisings-stats-every-day': {
-        'task': 'advertisings.tasks.get_and_save_advertisings_stats',
-        'schedule': crontab(minute='10', hour='8'),
-    },
+    # 'fetch-reviews-every-15-minutes': {
+    #     'task': 'reviews.tasks.fetch_reviews',
+    #     'schedule': crontab(minute='*/15'),
+    # },
+    # 'deleter-reviews-every-15-minutes': {
+    #     'task': 'reviews.tasks.deleter_reviews',
+    #     'schedule': crontab(minute='*/15'),
+    # },
+    # 'get-and-save-advertisings-stats-every-day': {
+    #     'task': 'advertisings.tasks.get_and_save_advertisings_stats',
+    #     'schedule': crontab(minute='10', hour='8'),
+    # },
     # 'export-statistics-to-google-sheets-every-day': {
     #     'task': 'advertisings.tasks.export_statistics_to_google_sheets',
     #     'schedule': crontab(minute='25', hour='8'),
