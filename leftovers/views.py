@@ -4,7 +4,6 @@ from .forms import StocksOrdersForm
 from celery.result import AsyncResult
 import datetime
 import logging
-from django.http import HttpResponse
 from django.http import JsonResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +30,7 @@ def stocks_orders_report_async(request):
             # Для AJAX запросов - запускаем задачу и возвращаем task_id
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 # Запускаем асинхронную задачу
-                if report_type == 'stocks':
+                if report_type == 'stocks' or report_type == 'stocks_by_cluster':
                     task = get_stocks_data_async.delay(cab_num)
                 elif report_type == 'orders':
                     task = get_orders_data_async.delay(cab_num)
@@ -108,7 +107,7 @@ def stocks_orders_report_async(request):
 
 def _handle_sync_post(request, form, report_type, cab_num, date_from, date_to):
     """Обработка синхронного POST запроса"""
-    if report_type == 'stocks':
+    if report_type == 'stocks' or report_type == 'stocks_by_cluster':
         task = get_stocks_data_async.delay(cab_num)
     elif report_type == 'orders':
         task = get_orders_data_async.delay(cab_num)
@@ -149,6 +148,8 @@ def prepare_report_data(raw_data, report_type, cab_num, date_from):
         
         if report_type == 'stocks':
             return get_stocks_report_data(raw_data)
+        elif report_type == 'stocks_by_cluster':
+            return get_stocks_by_cluster_report_data(raw_data)
         elif report_type == 'orders':
             return get_orders_report_data(raw_data)
         elif report_type == 'needs':
@@ -163,6 +164,73 @@ def prepare_report_data(raw_data, report_type, cab_num, date_from):
     except Exception as e:
         logger.error(f"Ошибка при подготовке отчета: {e}")
         return None
+    
+def get_stocks_by_cluster_report_data(stocks_data):
+    """Подготавливает данные для отчета по остаткам по кластерам"""
+    
+    # Кластеры в правильном порядке (такие же как в оборачиваемости)
+    clusters = [
+        'Центральный',
+        'Приволжский',
+        'Южный + Северо-Кавказский',
+        'Уральский',
+        'Северо-Западный',
+        'Казахстан',
+        'Дальневосточный + Сибирский',
+        'Беларусь',
+        'Армения',
+        'Грузия',
+        'Узбекистан',
+        'Кыргызстан'
+    ]
+    
+    report_data = {}
+    total_row = {
+        'supplier_article': 'ИТОГО',
+        'subject': '',
+        'clusters': {cluster: 0 for cluster in clusters},
+        'total': 0
+    }
+    
+    for stock_item in stocks_data:
+        try:
+            nm_id = stock_item['nmId']
+            warehouse_name = stock_item['warehouseName']
+            supplier_article = stock_item['supplierArticle']
+            subject = stock_item.get('subject', '')
+            quantity = stock_item.get('quantity', 0)
+            
+            if nm_id not in report_data:
+                report_data[nm_id] = {
+                    'supplier_article': supplier_article,
+                    'subject': subject,
+                    'clusters': {cluster: 0 for cluster in clusters},
+                    'total': 0
+                }
+            
+            # Определяем кластер для склада
+            cluster = get_cluster_by_warehouse(warehouse_name)
+            
+            if cluster in clusters:
+                report_data[nm_id]['clusters'][cluster] += quantity
+                report_data[nm_id]['total'] += quantity
+                
+                # Добавляем в итоговую строку
+                total_row['clusters'][cluster] += quantity
+                total_row['total'] += quantity
+                
+        except Exception as e:
+            continue
+    
+    # Добавляем итоговую строку в report_data
+    report_data['total'] = total_row
+    
+    return {
+        'report_data': report_data,
+        'clusters': clusters
+    }
+
+
 
 def get_turnover_report_data(stocks_data, orders_data):
     """
@@ -184,7 +252,8 @@ def get_turnover_report_data(stocks_data, orders_data):
         'Беларусь',
         'Армения',
         'Грузия',
-        'Узбекистан'
+        'Узбекистан',
+        'Кыргызстан'
     ]
     
     report_data = {}
@@ -405,7 +474,8 @@ def get_orders_report_data(orders_data):
         'Беларусь',
         'Армения',
         'Грузия',
-        'Узбекистан'
+        'Узбекистан',
+        'Кыргызстан'
     ]
     
     report_data = {}
@@ -525,53 +595,113 @@ def get_needs_report_data(stocks_data, orders_data, period_multiplier=1):
     }
 
 def calculate_needs(stock_info, order_info, regions, period_multiplier=1):
-    """
-    Рассчитывает потребности на основе остатков и заказов по формуле:
-    =ЕСЛИ(И(А>10;В>10;В<А*N);А*N-В;ЕСЛИ(И(В<10;А<50);50-В;ЕСЛИ(И(В<20;А>0);А*N;0)))
-    
-    Где:
-    А - количество заказов по артикулу в регионе
-    В - остатки товара в регионе  
-    N - период кратный 14 дням (period_multiplier)
-    """
     needs = {}
     
-    # Получаем распределение остатков по регионам на основе складов
     region_stocks = distribute_stocks_to_regions(stock_info, regions)
     
     for region in regions:
-        # А - количество заказов в регионе
         region_orders = order_info['regions'].get(region, 0)
-        
-        # В - остатки в регионе
         region_stock = region_stocks.get(region, 0)
-        
-        # N - период (по умолчанию 1, что соответствует 14 дням)
         N = period_multiplier
         
-        # Применяем формулу
+        # 1. Товар с активными продажами, но недостаточными остатками
         if (region_orders > 10 and 
             region_stock > 10 and 
             region_stock < region_orders * N):
-            # Случай 1: Есть заказы и остатки, но остатков недостаточно
             need = region_orders * N - region_stock
         
-        elif (region_stock < 10 and region_orders < 50):
-            # Случай 2: Мало остатков и мало заказов - добиваем до минимального уровня 50
-            need = 50 - region_stock
+        # 2. Критически мало остатков - добиваем до минимального уровня
+        elif region_stock < 10:
+            if region_orders < 50:
+                # Мало продаж - добиваем до страхового запаса 50
+                need = 50 - region_stock
+            else:
+                # Высокие продажи - планируем на период
+                need = region_orders * N
         
-        elif (region_stock < 20 and region_orders > 0):
-            # Случай 3: Очень мало остатков, но есть заказы - планируем на период
+        # 3. Товар новый или с низкими продажами, но есть потенциал
+        elif region_orders > 0 and region_stock < 50:
+            # Есть продажи, но мало остатков - планируем на период
             need = region_orders * N
         
+        # 4. Товар новый с нулевыми остатками - минимальный заказ
+        elif region_orders == 0 and region_stock == 0:
+            need = 50  # Минимальный стартовый запас
+        
         else:
-            # Случай 4: Во всех остачных случаях потребность 0
             need = 0
         
-        # Округляем и убеждаемся, что потребность не отрицательная
         needs[region] = max(0, int(need))
     
     return needs
+
+def get_cluster_by_warehouse(warehouse_name):
+    """
+    Определяет кластер по названию склада
+    """
+    warehouse_to_cluster = {
+        # Центральный
+        'Рязань (Тюшевское)': 'Центральный',
+        'Сабурово': 'Центральный',
+        'Владимир': 'Центральный',
+        'Тула': 'Центральный',
+        'Котовск': 'Центральный',
+        'Электросталь': 'Центральный',
+        'Воронеж': 'Центральный',
+        'Обухово': 'Центральный',
+        'Коледино': 'Центральный',
+        'Белая дача': 'Центральный',
+        'Подольск': 'Центральный',
+        'Щербинка': 'Центральный',
+        'Чехов 1': 'Центральный',
+        'Чехов 2': 'Центральный',
+        'Белые Столбы': 'Центральный',
+        
+        # Приволжский
+        'Кузнецк СГТ': 'Приволжский',
+        'Пенза': 'Приволжский',
+        'Самара (Новосемейкино)': 'Приволжский',
+        'Сарапул': 'Приволжский',
+        'Казань': 'Приволжский',
+        
+        # Южный + Северо-Кавказский
+        'Волгоград': 'Южный + Северо-Кавказский',
+        'Невинномысск': 'Южный + Северо-Кавказский',
+        'Краснодар': 'Южный + Северо-Кавказский',
+        
+        # Уральский
+        'Челябинск СГТ': 'Уральский',
+        'Екатеринбург - Испытателей 14г': 'Уральский',
+        'Екатеринбург - Перспективный 12': 'Уральский',
+        
+        # Северо-Западный
+        'Санкт-Петербург СГТ': 'Северо-Западный',
+        'СПБ Шушары': 'Северо-Западный',
+        'Санкт-Петербург Уткина Заводь': 'Северо-Западный',
+        
+        # Казахстан
+        'Атакент': 'Казахстан',
+        'Актобе': 'Казахстан',
+        'Астана Карагандинское шоссе': 'Казахстан',
+        
+        # Дальневосточный + Сибирский
+        'Хабаровск': 'Дальневосточный + Сибирский',
+        'Новосибирск': 'Дальневосточный + Сибирский',
+        
+        # Беларусь
+        'Минск': 'Беларусь',
+        
+        # Армения
+        'СЦ Ереван': 'Армения',
+        
+        # Грузия
+        'СЦ Тбилиси 3 Бонд': 'Грузия',
+        
+        # Узбекистан
+        'Ташкент': 'Узбекистан'
+    }
+    
+    return warehouse_to_cluster.get(warehouse_name, 'Центральный')
 
 def distribute_stocks_to_regions(stock_info, regions):
     """
@@ -715,6 +845,16 @@ def map_region_to_excel(region_name):
         'тбилиси': 'Грузия',
         'ереван': 'Армения',
         'севастополь': 'Южный + Северо-Кавказский',
+
+        # Кыргызстан
+        'кыргызстан': 'Кыргызстан',
+        'киргиз': 'Кыргызстан',
+        'бишкек': 'Кыргызстан',
+        'город бишкек': 'Кыргызстан',
+        'город республиканского подчинения бишкек': 'Кыргызстан',
+        'чуйская область': 'Кыргызстан',
+        'иссык-кульская область': 'Кыргызстан',  # Добавлено
+        'ошская область': 'Кыргызстан',  # Добавлено
     }
     
     # Сначала проверяем точное соответствие
@@ -873,6 +1013,12 @@ def map_region_to_excel(region_name):
         'город бишкек': 'Кыргызстан',
         'город республиканского подчинения бишкек': 'Кыргызстан',
         'чуйская область': 'Кыргызстан',
+        'иссык-кульская область': 'Кыргызстан',  # Добавлено
+        'ошская область': 'Кыргызстан',  # Добавлено
+        'нарынская область': 'Кыргызстан',  # Добавлено для полноты
+        'таласская область': 'Кыргызстан',  # Добавлено для полноты
+        'джалал-абадская область': 'Кыргызстан',  # Добавлено для полноты
+        'баткенская область': 'Кыргызстан',  # Добавлено для полноты
     }
     
     # Проверяем маппинг областей

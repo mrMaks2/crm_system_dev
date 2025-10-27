@@ -2,7 +2,13 @@ from django import forms
 
 class StocksOrdersForm(forms.Form):
     report_type = forms.ChoiceField(
-        choices=[('stocks', 'Остатки'), ('orders', 'Заказы'), ('needs', 'Потребности'), ('turnover', 'Оборачиваемость')],
+        choices=[
+            ('stocks', 'Остатки по складам'), 
+            ('stocks_by_cluster', 'Остатки по кластерам'),
+            ('orders', 'Заказы'), 
+            ('needs', 'Потребности'), 
+            ('turnover', 'Оборачиваемость')
+        ],
         widget=forms.Select(attrs={'class': 'form-select'}),
         initial='stocks'
     )
