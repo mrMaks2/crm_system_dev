@@ -92,7 +92,7 @@ def stocks_orders_report_async(request):
                     cab_num = task_info.get('cab_num')
                     date_from = task_info.get('date_from')
                     
-                    report_data = prepare_report_data(result_data, report_type, cab_num, date_from)
+                    report_data = prepare_report_data(result_data, report_type, cab_num)
                     
                     if report_data:
                         context.update({
@@ -139,7 +139,7 @@ def _handle_sync_post(request, form, report_type, cab_num, date_from, date_to):
     }
     return render(request, 'leftovers/stocks_orders_report.html', context)
 
-def prepare_report_data(raw_data, report_type, cab_num, date_from):
+def prepare_report_data(raw_data, report_type, cab_num):
     """
     Подготавливает данные для отображения в отчете
     """
@@ -563,7 +563,7 @@ def get_orders_report_data(orders_data):
         'regions': regions
     }
 
-def get_needs_report_data(stocks_data, orders_data, period_multiplier=1):
+def get_needs_report_data(stocks_data, orders_data, period_multiplier=3):
     """Подготавливает данные для отчета по потребностям с объединенными регионами"""
     
     # Получаем данные по остаткам и заказам для расчета потребностей
@@ -1189,7 +1189,7 @@ def check_task_status(request, task_id):
                 date_to = task_info.get('date_to')
                 
                 # Подготавливаем данные для отображения
-                report_data = prepare_report_data(result_data, report_type, cab_num, date_from)
+                report_data = prepare_report_data(result_data, report_type, cab_num)
                 
                 if report_data:
                     # Рендерим HTML таблицы
